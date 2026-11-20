@@ -264,7 +264,7 @@ details.bereich[open] summary::before{content:'▾ '}
 </head>
 <body>
 <div class="app">
-  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand <span id="appstand">sademo-v11</span></div></aside>
+  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand <span id="appstand">sademo-v12</span></div></aside>
   <div><div class="topbar" id="topnav"></div><main class="main" id="main"></main></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -5718,7 +5718,7 @@ const PDFDoc=(function(){
 
 
 /* Sicherheitsaudit Tiefbau – iPad-Prototyp v2. Daten lokal im Gerät (localStorage). */
-const APPSTAND='sademo-v11';const KEY='sademo_audit_v2'; /* Demo: eigener Speicher, getrennt von der Live-Fassung auf derselben Domain */
+const APPSTAND='sademo-v12';const KEY='sademo_audit_v2'; /* Demo: eigener Speicher, getrennt von der Live-Fassung auf derselben Domain */
 const ARTEN={Tagescheck:'Tagescheck (Polier)',Rundgang:'Rundgang (Bauführer)','Audit Tiefbau':'Audit Tiefbau (SiBe)',Geraetepruefung:'Geräteprüfung',Ereignis:'Ereignis / Beinaheunfall',Meldung:'Meldung (QR / Mitarbeitende)',Systemaudit:'Systemaudit (ASA)'};
 const ARTK={Tagescheck:'Tagescheck',Rundgang:'Rundgang','Audit Tiefbau':'Audit',Geraetepruefung:'Geräteprüfung',Ereignis:'Ereignis',Meldung:'Meldung',Systemaudit:'Systemaudit'};
 const ROLLEN=['Polier','Bauführer','SiBe / Bauleitung'];
@@ -6844,25 +6844,34 @@ function shrink(file,cb){const img=new Image();const url=URL.createObjectURL(fil
 function addFoto(id,inp){const f=inp.files[0];if(!f)return;shrink(f,d=>{const p=DB.punkte.find(x=>x.id===id);p.fotos=p.fotos||[];p.fotos.push(d);save();render();});}
 function delFoto(id,i){const p=DB.punkte.find(x=>x.id===id);p.fotos.splice(i,1);save();render();}
 
+function fazitVorschlag(k,ps){const mg=ps.filter(p=>p.status==='Mangel'),np=ps.filter(p=>p.status==='Nicht geprüft').length,vb=ps.filter(p=>p.status==='Vorbildlich');const ge=k.art==='Gefahrenermittlung';
+  const z=[];
+  if(!mg.length)z.push(ge?(np?'Geklärt, keine Massnahmen nötig.':'Alles geklärt, keine Massnahmen nötig.'):(np?'Alle geprüften Punkte in Ordnung.':'Alles geprüft und in Ordnung.'));
+  else{const st=mg.filter(p=>p.arbeitsstopp==='Ja').length;z.push(ge?mg.length+(mg.length===1?' Massnahme':' Massnahmen')+' vor Baubeginn festgelegt:':mg.length+(mg.length===1?' Mangel':' Mängel')+(st?', davon '+st+' mit Arbeitsstopp':'')+':');
+    mg.forEach(p=>z.push('• '+p.objekt+(p.mangel?': '+p.mangel.slice(0,90):'')+(p.massnahme?' → '+p.massnahme.split('\n')[0].slice(0,70):'')+(p.zustaendig?' ('+p.zustaendig+(p.termin?', bis '+fmtD(p.termin):'')+')':'')));}
+  vb.slice(0,3).forEach(p=>z.push('• Lob: '+p.objekt+(p.bem?' – '+p.bem.slice(0,70):'')));
+  if(np)z.push(np+(np===1?' Punkt':' Punkte')+' nicht geprüft.');
+  return z.join('\n');}
 S.abschluss=()=>{
   const k=DB.kontrollen.find(x=>x.id===route.id);const ps=DB.punkte.filter(p=>p.kontrolle===k.id);const mg=ps.filter(p=>p.status==='Mangel');
   const ausNotizen=[...new Set(Object.values(k.bereich||{}).map(v=>(v&&v.mit)||'').join(',').split(',').map(x=>x.trim()).filter(Boolean))];
   if(!k.teilnehmer&&(ausNotizen.length||k.begleit))k.teilnehmer=[...new Set([k.begleit,...ausNotizen].filter(Boolean))].join(', ');
   const themen=mg.slice(0,5).map(p=>'• '+p.objekt+': '+p.mangel.slice(0,90));
   const vb2=ps.filter(p=>p.status==='Vorbildlich').slice(0,3).map(p=>'• Lob: '+p.objekt+(p.bem?' – '+p.bem.slice(0,70):''));
+  if(!k.fazit)k.fazit=fazitVorschlag(k,ps);
   return `<div class="head"><div><div class="eyebrow">${esc(k.nr)} · Abschluss</div><h1>${esc(ARTEN[k.art])} abschliessen</h1></div></div>
   <div class="card"><div class="grid g3 mb"><div class="kpi ok"><b>${ps.filter(p=>p.status==='OK').length}</b><span>OK</span></div><div class="kpi ok"><b>${ps.filter(p=>p.status==='Vorbildlich').length}</b><span>Vorbildlich</span></div><div class="kpi crit"><b>${mg.length}</b><span>Mängel</span></div><div class="kpi crit"><b>${mg.filter(p=>p.arbeitsstopp==='Ja').length}</b><span>Arbeitsstopps</span></div><div class="kpi"><b>${ps.filter(p=>p.status==='Nicht geprüft').length}</b><span>Nicht geprüft</span></div></div>
   <div class="form">
-    <label class="f full"><span>Kurzfazit</span><textarea id="a_fazit">${esc(k.fazit)}</textarea></label>
+    <label class="f full"><span>Kurzfazit <span class="muted" style="font-weight:400">(automatisch erstellt, frei bearbeitbar)</span></span><textarea id="a_fazit" rows="5" oninput="(DB.kontrollen.find(x=>x.id==='${k.id}')||{}).fazit=this.value;save()">${esc(k.fazit)}</textarea></label>
     <label class="f"><span>Gesamtbewertung (automatisch)</span><div class="row" style="min-height:44px"><span class="dot ${gesamt(k)}"></span> ${gesamt(k)}</div></label>
     <label class="f"><span>Sicherheitsgespräch durchgeführt</span><select id="a_g"><option ${k.gespraech==='Nein'?'selected':''}>Nein</option><option ${k.gespraech==='Ja'?'selected':''}>Ja</option></select></label>
     <label class="f full"><span>Teilnehmende Sicherheitsgespräch / Rundgang (Namen – Nachweis der Mitwirkung)</span><input id="a_tn" value="${esc(k.teilnehmer||'')}" placeholder="z. B. Polier Meier, Maschinist Rossi, Sub Müller AG">${ausNotizen.length?`<span class="small muted">Aus den Bereichsnotizen übernommen: ${esc(ausNotizen.join(', '))}</span>`:''}</label>
     <div class="f full" style="display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--ink2);font-weight:600"><span>Unterschrift Prüfer/in (${esc(k.pruefer)})</span><canvas class="sig" id="sig" width="1040" height="360"></canvas><div class="row"><button type="button" class="btn sm" onclick="clearSig()">Löschen</button><span class="small muted" style="font-weight:400">Mit Finger oder Stift unterschreiben.</span></div></div>
   </div>
   ${(themen.length||vb2.length)?`<div class="card mt" style="border-left:4px solid var(--accent)"><h3>Vorschlag für das Sicherheitsgespräch</h3>
-  <p class="small muted">Diese Punkte lohnen sich zum Ansprechen – erst das Gute, dann das Fehlende.</p>
+  <p class="small muted">Diese Punkte lohnen sich zum Ansprechen – erst das Gute, dann das Fehlende. Sie stehen bereits im Kurzfazit.</p>
   <pre id="a_themen" class="themen">${esc([...vb2,...themen].join('\n'))}</pre>
-  <button class="btn sm mt" onclick="document.getElementById('a_fazit').value=(document.getElementById('a_fazit').value?document.getElementById('a_fazit').value+'\n':'')+document.getElementById('a_themen').textContent;toast('Ins Kurzfazit übernommen.')">Ins Kurzfazit übernehmen</button></div>`:''}
+</div>`:''}
   <div class="row mt"><button class="btn p" onclick="abschliessen('${k.id}')">Kontrolle abschliessen und Bericht erzeugen</button><button class="btn ghost" onclick="go('pruefen',{id:'${k.id}'})">Zurück</button></div>
   <p class="small muted mt">Nach dem Abschluss sind die Prüfpunkte gesperrt. Massnahmen bleiben unter «Massnahmen» bearbeitbar.</p></div>`;
 };
