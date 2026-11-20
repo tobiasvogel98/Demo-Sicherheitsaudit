@@ -264,7 +264,7 @@ details.bereich[open] summary::before{content:'▾ '}
 </head>
 <body>
 <div class="app">
-  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand sademo-v7</div></aside>
+  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand sademo-v8</div></aside>
   <div><div class="topbar" id="topnav"></div><main class="main" id="main"></main></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -6174,16 +6174,6 @@ function nfBildWeg(id,nr){const b=nfLesen(id);b.notfall['kroki'+nr]='';save();re
 /* ===== Kroki aus Bild, PDF oder Word: Auswahl und Ausschnitt ===== */
 function ladeSkript(src){return new Promise((ok,nein)=>{if(document.querySelector('script[data-src="'+src+'"]')){ok();return;}
   const s=document.createElement('script');s.src=src;s.dataset.src=src;s.onload=()=>ok();s.onerror=()=>nein(new Error('Datei '+src+' fehlt'));document.head.appendChild(s);});}
-async function pdfSeitenBilder(file,max){
-  await ladeSkript('pdfjs/pdf.min.js');const lib=window.pdfjsLib;if(!lib)throw new Error('PDF-Leser nicht geladen');
-  lib.GlobalWorkerOptions.workerSrc='pdfjs/pdf.worker.min.js';
-  const daten=new Uint8Array(await file.arrayBuffer());
-  let doc;try{doc=await lib.getDocument({data:daten}).promise;}catch(e){doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),disableWorker:true,isEvalSupported:false}).promise;}
-  const out=[];const n=Math.min(doc.numPages,max||8);
-  for(let i=1;i<=n;i++){const pg=await doc.getPage(i);const v0=pg.getViewport({scale:1});const sc=Math.min(3,2000/Math.max(v0.width,v0.height));const v=pg.getViewport({scale:sc});
-    const c=document.createElement('canvas');c.width=Math.round(v.width);c.height=Math.round(v.height);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
-    await pg.render({canvasContext:x,viewport:v}).promise;out.push({titel:'Seite '+i,canvas:c});}
-  return out;}
 /* Minimaler ZIP-Leser für .docx: Bilder aus word/media */
 async function docxBilder(file){const buf=new Uint8Array(await file.arrayBuffer());const dv=new DataView(buf.buffer);
   let eocd=-1;for(let i=buf.length-22;i>=Math.max(0,buf.length-70000);i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
@@ -6200,20 +6190,58 @@ async function docxBilder(file){const buf=new Uint8Array(await file.arrayBuffer(
     out.push({titel:name.split('/').pop(),blob:new Blob([daten],{type:typ}),groesse:daten.length});}
   if(!out.length)throw new Error('In dieser Word-Datei ist kein Bild (nur Bilder vom Typ JPG, PNG, GIF werden erkannt)');
   out.sort((a,b)=>b.groesse-a.groesse);
-  const bilder=[];for(const o of out.slice(0,8)){const c=await blobZuCanvas(o.blob,2000);if(c)bilder.push({titel:o.titel,canvas:c});}return bilder;}
+  const bilder=[];for(const o of out.slice(0,6)){const c=await blobZuCanvas(o.blob,1600);if(c)bilder.push({titel:o.titel,canvas:c});}return bilder;}
 function blobZuCanvas(blob,max){return new Promise(ok=>{const img=new Image();const url=URL.createObjectURL(blob);img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);ok(c);};img.onerror=()=>{URL.revokeObjectURL(url);ok(null);};img.src=url;});}
+
+/* Kroki-PDF robust (iPad): wenig Canvas-Speicher, Ersatzweg ohne PDF-Leser, sichtbare Fehlerursache */
+function vorschau(c,max){const s=Math.min(1,max/Math.max(c.width,c.height));const t=document.createElement('canvas');t.width=Math.round(c.width*s);t.height=Math.round(c.height*s);t.getContext('2d').drawImage(c,0,0,t.width,t.height);return t.toDataURL('image/jpeg',.6);}
+function mitZeitlimit(p,ms,txt){return Promise.race([p,new Promise((_,nein)=>setTimeout(()=>nein(new Error(txt)),ms))]);}
+async function pdfSeitenBilder(file,max){
+  await ladeSkript('pdfjs/pdf.min.js');const lib=window.pdfjsLib;if(!lib)throw new Error('PDF-Leser nicht geladen');
+  lib.GlobalWorkerOptions.workerSrc='pdfjs/pdf.worker.min.js';
+  const daten=new Uint8Array(await file.arrayBuffer());
+  const doc=await mitZeitlimit(lib.getDocument({data:daten,isEvalSupported:false}).promise,20000,'PDF-Leser antwortet nicht');
+  const out=[];const n=Math.min(doc.numPages,max||4);
+  for(let i=1;i<=n;i++){const pg=await doc.getPage(i);const v0=pg.getViewport({scale:1});const sc=Math.min(2.2,1500/Math.max(v0.width,v0.height));const v=pg.getViewport({scale:sc});
+    const c=document.createElement('canvas');c.width=Math.round(v.width);c.height=Math.round(v.height);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+    await mitZeitlimit(pg.render({canvasContext:x,viewport:v}).promise,20000,'Seite '+i+' lässt sich nicht zeichnen');
+    out.push({titel:'Seite '+i,canvas:c});pg.cleanup&&pg.cleanup();}
+  doc.destroy&&doc.destroy();
+  if(!out.length)throw new Error('PDF ohne Seiten');return out;}
+/* Ersatzweg: eingebettete JPEG-Bilder direkt aus der PDF holen (Scans, Kartenausdrucke) */
+async function inflateTolerant(d){let n=d.length;while(n>0&&(d[n-1]===0x0A||d[n-1]===0x0D))n--;const rd=new Blob([d.subarray(0,n)]).stream().pipeThrough(new DecompressionStream('deflate')).getReader();
+  const teile=[];let len=0;try{for(;;){const {done,value}=await rd.read();if(done)break;teile.push(value);len+=value.length;}}catch(e){}
+  const o=new Uint8Array(len);let p=0;teile.forEach(t=>{o.set(t,p);p+=t.length;});return o;}
+async function pdfJpegBilder(file){const u=new Uint8Array(await file.arrayBuffer());const funde=[];
+  const txt=new TextDecoder('latin1').decode(u);let p=0;
+  while((p=txt.indexOf('/DCTDecode',p))>=0){const ds=txt.lastIndexOf('<<',p),st=txt.indexOf('stream',p);if(st<0)break;
+    const dict=txt.slice(Math.max(0,ds),st);let s0=st+6;if(txt[s0]==='\r')s0++;if(txt[s0]==='\n')s0++;
+    const e=txt.indexOf('endstream',s0);if(e<0)break;let roh=u.subarray(s0,e);
+    try{if(/FlateDecode[\s\S]*DCTDecode/.test(dict)){if(typeof DecompressionStream==='undefined')throw 0;
+        roh=await inflateTolerant(roh);}
+      let i=0;while(i<roh.length-2&&!(roh[i]===0xFF&&roh[i+1]===0xD8))i++;if(roh.length-i>20000)funde.push(roh.subarray(i));}catch(x){}
+    p=e;}
+  funde.sort((a,b)=>b.length-a.length);const out=[];
+  for(const f of funde.slice(0,4)){const c=await blobZuCanvas(new Blob([f],{type:'image/jpeg'}),1600);if(c&&c.width>200)out.push({titel:'Bild '+(out.length+1),canvas:c});}
+  return out;}
 async function krokiQuellen(file){const n=(file.name||'').toLowerCase(),t=file.type||'';
-  if(t==='application/pdf'||n.endsWith('.pdf'))return pdfSeitenBilder(file,8);
+  const istPdf=t==='application/pdf'||n.endsWith('.pdf');
+  if(!istPdf&&!n.endsWith('.docx')&&!t.includes('wordprocessingml')&&!n.endsWith('.doc')){const c=await blobZuCanvas(file,1600);if(c)return [{titel:file.name||'Bild',canvas:c}];}
+  if(istPdf||(!t&&!n.includes('.'))){let fehler='';
+    try{return await pdfSeitenBilder(file,4);}catch(e){fehler=(e&&e.message)||String(e);}
+    try{const b=await pdfJpegBilder(file);if(b.length){toast('PDF über Ersatzweg gelesen.');return b;}}catch(e){}
+    throw new Error('Die PDF liess sich nicht lesen ('+fehler+'). Abhilfe: in der PDF ein Bildschirmfoto vom Kroki machen und das Foto wählen.');}
   if(n.endsWith('.docx')||t.includes('wordprocessingml'))return docxBilder(file);
   if(n.endsWith('.doc'))throw new Error('Alte Word-Dateien (.doc) gehen nicht. In Word als .docx oder als PDF speichern.');
-  const c=await blobZuCanvas(file,2000);if(!c)throw new Error('Datei nicht lesbar. Bild, PDF oder Word (.docx) verwenden.');return [{titel:file.name||'Bild',canvas:c}];}
+  throw new Error('Dateityp nicht erkannt ('+(t||n||'unbekannt')+'). Bild, PDF oder Word (.docx) verwenden.');}
+
 /* Auswahl- und Zuschneide-Dialog */
 function krokiDialog(quellen,titel){return new Promise(fertig=>{
   const w=document.createElement('div');w.className='modal';w.innerHTML=`<div class="mbox kbox" role="dialog" aria-modal="true"><h3>${esc(titel)}</h3><div id="kd_inhalt"></div><div class="row sp mt"><button class="btn ghost" id="kd_n">Abbrechen</button><span class="row" id="kd_knoepfe"></span></div></div>`;
-  document.body.appendChild(w);const zu=v=>{w.remove();fertig(v);};w.querySelector('#kd_n').onclick=()=>zu(null);
+  document.body.appendChild(w);const zu=v=>{w.remove();quellen.forEach(q=>{try{q.canvas.width=0;q.canvas.height=0;}catch(e){}});fertig(v);};w.querySelector('#kd_n').onclick=()=>zu(null);
   const inhalt=w.querySelector('#kd_inhalt'),kn=w.querySelector('#kd_knoepfe');
   const wahl=()=>{kn.innerHTML='';
-    inhalt.innerHTML=`<p class="small muted">${quellen.length>1?'Seite oder Bild antippen, das das Kroki enthält.':'Bild antippen, um den Ausschnitt zu wählen.'}</p><div class="kthumbs">${quellen.map((q,i)=>`<button class="kthumb" data-i="${i}"><img src="${q.canvas.toDataURL('image/jpeg',.6)}" alt=""><span>${esc(q.titel)}</span></button>`).join('')}</div>`;
+    inhalt.innerHTML=`<p class="small muted">${quellen.length>1?'Seite oder Bild antippen, das das Kroki enthält.':'Bild antippen, um den Ausschnitt zu wählen.'}</p><div class="kthumbs">${quellen.map((q,i)=>`<button class="kthumb" data-i="${i}"><img src="${vorschau(q.canvas,240)}" alt=""><span>${esc(q.titel)}</span></button>`).join('')}</div>`;
     inhalt.querySelectorAll('.kthumb').forEach(b=>b.onclick=()=>schneiden(quellen[+b.dataset.i].canvas));};
   const schneiden=src=>{inhalt.innerHTML=`<p class="small muted">Mit dem Finger einen Rahmen um den Kartenausschnitt ziehen. Ohne Rahmen wird das ganze Bild übernommen.</p><div class="kcrop"><canvas id="kd_c"></canvas></div>`;
     const c=inhalt.querySelector('#kd_c');const maxW=Math.min(760,window.innerWidth-60),maxH=Math.min(560,window.innerHeight-260);const s=Math.min(maxW/src.width,maxH/src.height,1);
