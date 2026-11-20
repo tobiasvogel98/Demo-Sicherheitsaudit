@@ -253,6 +253,7 @@ details.bereich[open] summary::before{content:'▾ '}
 .wbild.zeigt .wcap{display:block}
 .wbild .wtip{position:absolute;left:6px;bottom:6px;background:rgba(255,255,255,.9);font-size:11px;padding:2px 6px;border-radius:6px;color:#333}
 .wbild.zeigt .wtip{display:none}
+.nfmelde{background:#E0731D;color:#fff;font-weight:700;text-align:center;padding:8px;border-radius:8px;margin:8px 0}
 .vorschl{margin:0 0 12px}.vorschl .row{gap:6px;margin-top:4px}
 @media (max-width:640px){.warum{grid-template-columns:1fr}.wbild,.wbild svg{width:100%;height:auto}}
 </style>
@@ -5881,58 +5882,8 @@ NAV.splice(NAV.findIndex(n=>n[0]==='baustellen'),0,['meinebs','Meine Baustelle',
 ROLLENNAV['Bauführer']=ROLLENNAV['Bauführer'].filter(x=>x!=='meinebs');
 function istRegelGruppiert(k){return k.art==='Tagescheck'||k.art==='Rundgang'||k.art==='Wochencheck';}
 
-/* Begründung je lebenswichtige Regel (0 = Organisation / Gesundheitsschutz).
-   warum: kurz, warum der Mangel gefährlich ist. soll: was im Bild zu sehen ist (Antippen). */
-const BEGRUENDUNG={
- 1:{warum:'Wer Werkleitungen, Baugrund und Ablauf nicht kennt, trifft mit dem Bagger eine Gas- oder Stromleitung. Ein Treffer an einer Stromleitung kann tödlich sein, ein Gasleck kann explodieren. Darum zuerst Pläne einholen, Leitungen suchen und markieren, dann graben.',
-    soll:'Sollzustand: Leitungen auf dem Boden markiert (Farbe je Medium), Werkleitungspläne aktuell auf der Baustelle, in Leitungsnähe von Hand freilegen.'},
- 2:{warum:'Der Verkehr fährt dicht am Arbeitsplatz vorbei, oft abgelenkt und zu schnell. Ohne korrekte Signalisation und lückenlose Abschrankung erkennt der Lenker die Baustelle zu spät, und Fussgänger laufen in den Gefahrenbereich.',
-    soll:'Sollzustand: Signalisation nach bewilligtem Plan, Abschrankung ohne Lücken, nachts beleuchtet, Fussgänger sicher um die Baustelle geführt.'},
- 3:{warum:'Wer nicht gesehen wird, wird angefahren, vom Strassenverkehr oder von der eigenen Baumaschine. Warnkleidung wirkt nur, wenn sie sauber und geschlossen ist und zur Verkehrssituation passt. Bei Dämmerung und Nacht braucht es zusätzlich Licht.',
-    soll:'Sollzustand: Warnkleidung geschlossen und sauber, Reflexstreifen sichtbar, Arbeitsplatz bei schlechter Sicht beleuchtet.'},
- 4:{warum:'Bagger, Dumper und Lastwagen haben grosse tote Winkel. Beim Rückwärtsfahren sieht der Fahrer niemanden hinter dem Fahrzeug. Erst Blickkontakt, dann in den Gefahrenbereich: Das verhindert Überrollen und Quetschen.',
-    soll:'Sollzustand: Niemand im toten Winkel. Wer in den Gefahrenbereich muss, sucht zuerst Blickkontakt mit dem Fahrer. Rückwärts nur mit Einweiser oder freier Sicht.'},
- 5:{warum:'Defekte Bremsen, fehlende Schutzeinrichtungen oder ungeschulte Bediener führen zu Kippen, Überfahren und Quetschen. Eine Maschine darf nur bedienen, wer ausgebildet und beauftragt ist, und nur nach der Abfahrtskontrolle.',
-    soll:'Sollzustand: Abfahrtskontrolle gemacht (Bremsen, Spiegel, Kamera, Warner, Leckagen), Bediener mit Ausweis, Maschine gesichert abgestellt.'},
- 6:{warum:'Reisst eine Kette oder rutscht die Last aus der Schlinge, fällt sie ohne Vorwarnung. Wer darunter oder daneben steht, hat keine Chance. Darum nur geprüfte, gekennzeichnete Anschlagmittel und niemand im Gefahrenbereich der Last.',
-    soll:'Sollzustand: Anschlagmittel mit Etikette und ohne Schäden, Gefahrenbereich unter der Last frei, Lasten mit Führungsseil führen, nicht von Hand.'},
- 7:{warum:'Abstürze sind auf dem Bau eine der häufigsten Ursachen tödlicher Unfälle, auch aus geringer Höhe. Ein fester Seitenschutz oder eine gesicherte Abdeckung verhindert den Sturz, bevor er passiert. Ab 2 m Absturzhöhe ist Seitenschutz Pflicht.',
-    soll:'Sollzustand: dreiteiliger Seitenschutz mit Holm auf 1 m Höhe, Zwischenholm und Bordbrett (mind. 15 cm). Öffnungen durchtrittsicher abgedeckt und fixiert.'},
- 8:{warum:'Stolpern, Ausrutschen und Stürze auf gleicher Ebene sind auf Baustellen die häufigste Unfallursache überhaupt. Herumliegendes Material, Schläuche und improvisierte Aufstiege führen zu Verstauchungen, Brüchen und Abstürzen.',
-    soll:'Sollzustand: Wege frei und eben, Material geordnet gelagert, Kabel und Schläuche geführt. Leiter gesichert, 1 m über die Austrittsstelle, Anstellwinkel etwa 70°.'},
- 9:{warum:'Ein Kubikmeter Erde wiegt rund 2 Tonnen. Bricht eine ungesicherte Grabenwand ein, wird der Brustkorb eingedrückt und man kann nicht mehr atmen, auch wenn man nur teilweise verschüttet ist. Ab 1.50 m Tiefe braucht ein Graben Böschung oder Spriessung.',
-    soll:'Sollzustand: ab 1.50 m Tiefe geböscht oder gespriesst, Randstreifen frei von Aushub und Material, sicherer Zugang (Treppe oder gesicherte Leiter).'},
- 10:{warum:'Helm, Sicherheitsschuhe und Warnkleidung sind der letzte Schutz, wenn alles andere versagt: der fallende Stein, der Nagel im Brett, der rückwärtsfahrende Dumper. Gehörschutz, Schutzbrille und Atemschutz verhindern Schäden, die erst nach Jahren sichtbar werden.',
-    soll:'Sollzustand: Helm, Sicherheitsschuhe, Warnkleidung; je nach Arbeit Schutzbrille, Gehörschutz, Handschuhe und Atemschutz.'},
- 0:{warum:'Im Notfall zählt jede Minute. Wer Notfallnummer, Erste-Hilfe-Material und Zufahrt für die Ambulanz nicht kennt, verliert Zeit. Gefahrstoffe, Staub, Hitze und Lärm machen langsam krank, deshalb gehören sie in jede Kontrolle.',
-    soll:'Sollzustand: Notfallnummer 144 und Standort ausgehängt, Erste-Hilfe-Material und Nothelfer vor Ort, Zufahrt frei, Sammelplatz bekannt.'}
-};
-
-/* Massnahmenvorschläge: je Regel die gängigsten Lösungen, dazu einzelne Prüfpunkte genauer. */
-const VORSCHLAEGE={
- 1:['Werkleitungspläne einholen und auf die Baustelle bringen','Leitungen orten und am Boden markieren','In Leitungsnähe nur von Hand oder mit Saugbagger freilegen','Arbeitsablauf mit der Equipe neu besprechen'],
- 2:['Signalisation nach Plan korrigieren','Lücke in der Abschrankung schliessen','Beleuchtung der Absperrung ersetzen oder ergänzen','Fussgängerführung neu stellen'],
- 3:['Warnkleidung ersetzen (sauber, passende Klasse)','Arbeitsplatz zusätzlich beleuchten','Mitarbeitende auf Sichtbarkeit instruieren'],
- 4:['Einweiser bestimmen und instruieren','Rückfahrzone absperren','Rückfahrkamera oder -warner instand stellen','Regel «erst Blickkontakt» mit der Equipe besprechen'],
- 5:['Maschine ausser Betrieb nehmen und reparieren lassen','Abfahrtskontrolle nachholen und festhalten','Nur berechtigte Person einsetzen','Schutzeinrichtung wieder montieren'],
- 6:['Beschädigtes Anschlagmittel ausscheiden und ersetzen','Gefahrenbereich der Last absperren','Führungsseil verwenden','Anschläger instruieren'],
- 7:['Seitenschutz montieren (Holm, Zwischenholm, Bordbrett)','Öffnung durchtrittsicher abdecken und fixieren','Absperrung mit Abstand zur Kante stellen','Bis zur Sicherung Bereich sperren'],
- 8:['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Leiter richtig aufstellen und sichern','Treppe oder Rampe erstellen'],
- 9:['Graben spriessen oder abböschen','Aushub vom Rand wegnehmen','Sicheren Zugang erstellen','Bis zur Sicherung niemand in den Graben'],
- 10:['Fehlende PSA abgeben','Beschädigte PSA ersetzen','Tragpflicht mit der Equipe besprechen','PSA-Vorrat auf der Baustelle ergänzen'],
- 0:['Notfallblatt aushängen','Erste-Hilfe-Material ergänzen','Zufahrt für die Ambulanz freihalten','Gefahrstoffe beschriften und in Auffangwanne stellen']
-};
-const VORSCHLAEGE_OBJ={
- 'Ordnung / Stolpergefahr':['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Abfallmulde leeren oder zusätzliche stellen','Schlamm und Kies vom Gehweg entfernen'],
- 'Ordnung / Sauberkeit':['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Abfallmulde leeren oder zusätzliche stellen'],
- 'Staub / Atemschutz':['Nass schneiden oder Absaugung einsetzen','FFP2/FFP3-Masken abgeben','Arbeitsbereich für Unbeteiligte sperren'],
- 'Atemschutz/Staub':['Nass schneiden oder Absaugung einsetzen','FFP2/FFP3-Masken abgeben','Arbeitsbereich für Unbeteiligte sperren'],
- 'Betriebsstoffe':['Kanister beschriften','Auffangwanne stellen','Ölbindemittel auf die Baustelle bringen'],
- 'Offene Punkte':['Offene Massnahmen mit Zuständigen nachfassen','Wirksamkeit vor Ort prüfen','Überfällige Punkte dem Bauführer melden'],
- 'Abfahrtskontrolle Maschinen':['Abfahrtskontrolle täglich festhalten (Tagescheck)','Schaden melden und Maschine reparieren lassen','Bediener auf Abfahrtskontrolle instruieren']
-};
-function vorschlaegeFuer(p){return VORSCHLAEGE_OBJ[p.objekt]||VORSCHLAEGE_OBJ[p.objektgruppe]||VORSCHLAEGE[p.regel]||VORSCHLAEGE[0];}
-function begruendungFuer(p){return BEGRUENDUNG[p.regel]||BEGRUENDUNG[0];}
+function vorschlaegeFuer(p){return themaFuer(p).v;}
+function begruendungFuer(p){return themaFuer(p);}
 function vorschlagNehmen(id,ix){const p=DB.punkte.find(x=>x.id===id);if(!p)return;const t=vorschlaegeFuer(p)[ix];if(!t)return;
   const alt=(p.massnahme||'').trim();if(alt.split(/\n/).map(s=>s.replace(/^·\s*/,'')).includes(t)){toast('Schon eingetragen.');return;}
   setP(id,'massnahme',alt?alt+'\n'+t:t);render();}
@@ -5957,7 +5908,7 @@ const SOLLBILD={
    ${SB_MANN(195,110,1)}<path d="M78 60 L190 74" stroke="#2E8B57" stroke-width="2" stroke-dasharray="4 3"/><circle cx="78" cy="60" r="3" fill="#2E8B57"/><text x="128" y="96" font-size="9" fill="#1E6B40">Blickkontakt</text>${SB_OK}</svg>`,
  5:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="20" y="60" width="110" height="50" rx="6" fill="#F2C200" stroke="#7A6400"/><rect x="28" y="40" width="40" height="34" rx="3" fill="#F2C200" stroke="#7A6400"/><rect x="33" y="45" width="30" height="20" fill="#9FC7E8"/>
    <circle cx="45" cy="118" r="14" fill="#333"/><circle cx="105" cy="118" r="14" fill="#333"/><circle cx="45" cy="118" r="5" fill="#888"/><circle cx="105" cy="118" r="5" fill="#888"/>
-   <g font-size="10" fill="#222">${['Bremsen','Spiegel / Kamera','Warner / Licht','keine Leckagen','Ausweis Bediener'].map((t,i)=>`<circle cx="152" cy="${44+i*20}" r="6" fill="#2E8B57"/><path d="M149 ${44+i*20}l2 2 4-4" stroke="#fff" stroke-width="1.8" fill="none"/><text x="162" y="${48+i*20}">${t}</text>`).join('')}</g></svg>`,
+   <g font-size="10" fill="#222">${['Bremsen','Spiegel / Kamera','Warner / Licht','keine Leckagen','Gurt / Schutz'].map((t,i)=>`<circle cx="152" cy="${44+i*20}" r="6" fill="#2E8B57"/><path d="M149 ${44+i*20}l2 2 4-4" stroke="#fff" stroke-width="1.8" fill="none"/><text x="162" y="${48+i*20}">${t}</text>`).join('')}</g></svg>`,
  6:`<svg viewBox="0 0 240 160">${SB_GRUND}<path d="M30 10 h170" stroke="#7A6400" stroke-width="6"/><path d="M110 10 v40" stroke="#444" stroke-width="2"/><path d="M110 50 l-18 22 M110 50 l18 22" stroke="#888" stroke-width="2.5"/>
    <rect x="86" y="72" width="48" height="26" fill="#9AA3AB" stroke="#555"/><path d="M134 85 q30 20 52 30" stroke="#8B5A2B" stroke-width="1.6" fill="none"/>
    <ellipse cx="110" cy="138" rx="70" ry="14" fill="#D0342C" opacity=".15" stroke="#D0342C" stroke-dasharray="6 4"/><text x="80" y="142" font-size="9" fill="#B0281F">Gefahrenbereich frei</text>
@@ -5982,12 +5933,282 @@ const SOLLBILD={
    <rect x="110" y="74" width="110" height="26" rx="6" fill="#2E8B57"/><text x="120" y="92" font-size="11" fill="#fff">Sammelplatz</text>
    <text x="20" y="124" font-size="10" fill="#222">Notfallblatt ausgehängt</text><text x="20" y="140" font-size="10" fill="#222">Zufahrt frei · Nothelfer bekannt</text></svg>`
 };
-function begruendungKarte(p,ro){const b=begruendungFuer(p);const svg=SOLLBILD[p.regel]||SOLLBILD[0];
+function begruendungKarte(p,ro){const b=begruendungFuer(p);const svg=sollbildFuer(p);
   const vs=vorschlaegeFuer(p);
-  return `<div class="warum ${p.arbeitsstopp==='Ja'?'stoppw':''}"><div class="wtext"><b>${p.arbeitsstopp==='Ja'?'Warum hier die Arbeit stoppt':'Warum das gefährlich ist'}</b><p>${esc(b.warum)}</p>
+  return `<div class="warum ${p.arbeitsstopp==='Ja'?'stoppw':''}"><div class="wtext"><span class="pill n">Betrifft: ${esc(b.t)}</span><br><b>${p.arbeitsstopp==='Ja'?'Warum hier die Arbeit stoppt':'Warum das gefährlich ist'}</b><p>${esc(b.warum)}</p>
     <div class="small muted">${p.soll?'Soll: '+esc(p.soll):''}${p.recht?' · '+esc(p.recht):''}</div></div>
     <button class="wbild" type="button" onclick="sollUmschalten(this)" aria-label="Sollzustand anzeigen">${svg}<span class="wcap">${esc(b.soll)}</span><span class="wtip">Antippen: Sollzustand</span></button></div>
     ${ro?'':`<div class="vorschl"><span class="small" style="font-weight:600;color:var(--ink2)">Häufige Massnahmen – antippen zum Übernehmen</span><div class="row">${vs.map((t,i)=>`<button class="btn sm" type="button" onclick="vorschlagNehmen('${p.id}',${i})">＋ ${esc(t)}</button>`).join('')}</div></div>`}`;}
+
+
+/* ===== Begründung je Thema statt je Regel (Korrektur 20.11.2026) =====
+   Jeder Prüfpunkt (Tagescheck, Wochencheck, Rundgang, Audit, Geräteprüfung, Systemaudit) hat ein Thema.
+   Text, Sollbild und Massnahmenvorschläge beziehen sich auf genau dieses Thema. */
+const THEMA={
+ orga:{t:'Planung und Arbeitsvorbereitung',bild:{liste:['Arbeiten der Woche besprochen','Gefahren und Sperrzonen bekannt','Zuständigkeiten klar','SiGe-Konzept aktuell']},
+  warum:'Was nicht geplant ist, wird auf der Baustelle improvisiert, und Improvisation ist der häufigste Anfang eines Unfalls. Wer Ablauf, Gefahren und Zuständigkeiten kennt, merkt früh, wenn etwas nicht stimmt.',
+  soll:'Sollzustand: Arbeiten, Gefahren, Sperrzonen und Zuständigkeiten sind besprochen; das SiGe-Konzept ist aktuell und der Equipe bekannt.',
+  v:['Arbeitsablauf mit der Equipe neu besprechen','Zuständigkeiten festlegen und mitteilen','SiGe-Konzept nachführen','Kurzbesprechung vor gefährlichen Arbeiten einführen']},
+ instr:{t:'Instruktion',bild:'instr',
+  warum:'Wer die 10 lebenswichtigen Regeln und das STOPP-Prinzip nicht kennt, erkennt Gefahren nicht und hört nicht auf zu arbeiten, wenn es gefährlich wird. Neue und temporäre Mitarbeitende verunfallen in den ersten Wochen deutlich häufiger als erfahrene.',
+  soll:'Sollzustand: Instruktion vor dem ersten Einsatz, in einer Sprache, die die Person versteht, mit Datum und Unterschrift festgehalten.',
+  v:['Instruktion heute nachholen und unterschreiben lassen','Instruktion mit Übersetzung oder Bildern wiederholen','Neue erst nach Instruktion einsetzen','Instruktionsliste der Baustelle nachführen']},
+ lernende:{t:'Lernende und Jugendliche',bild:{liste:['Nur erlaubte Arbeiten','Begleitung durch Berufsbildner','Gefährliches nur laut Bildungsplan','Instruktion festgehalten']},
+  warum:'Lernende schätzen Gefahren oft noch falsch ein und trauen sich seltener, STOPP zu sagen. Für Jugendliche unter 18 sind gefährliche Arbeiten nur erlaubt, wenn der Bildungsplan sie vorsieht und sie begleitet werden.',
+  soll:'Sollzustand: Lernende machen nur Arbeiten, die für sie erlaubt sind, und arbeiten bei gefährlichen Tätigkeiten mit einer instruierten Begleitperson.',
+  v:['Lernenden sofort von der Arbeit abziehen','Begleitperson bestimmen','Arbeit mit dem Berufsbildner klären','Instruktion nachholen und festhalten']},
+ sub:{t:'Subunternehmer',bild:{liste:['Ansprechperson bekannt','Sperrbereiche abgesprochen','Fahrwege und Kranzonen koordiniert','Regeln instruiert']},
+  warum:'Arbeiten mehrere Firmen nebeneinander, treffen die Gefahren der einen die Leute der anderen: der Kran über der fremden Equipe, der Graben neben dem Fahrweg. Ohne Absprache weiss keiner, was der andere macht.',
+  soll:'Sollzustand: Subunternehmer sind instruiert, Sperrbereiche, Fahrwege, Kranzonen und Arbeitszeiten sind gemeinsam festgelegt.',
+  v:['Koordinationsgespräch mit dem Subunternehmer führen','Subunternehmer über Regeln und Notfall instruieren','Sperrbereiche gemeinsam markieren','Ansprechpersonen austauschen']},
+ kontrolle:{t:'Nachkontrolle und Massnahmen',bild:{liste:['Zuständig und Termin gesetzt','Erledigung vor Ort geprüft','Wirkung bestätigt','Wiederholungen besprochen']},
+  warum:'Eine Massnahme ohne Termin und Nachkontrolle bleibt erfahrungsgemäss liegen. Der gleiche Mangel taucht dann wieder auf, und beim nächsten Mal passiert vielleicht etwas.',
+  soll:'Sollzustand: Jeder Mangel hat Zuständigen, Termin und Nachkontrolle; die Wirkung wird vor Ort bestätigt.',
+  v:['Offene Massnahmen mit Zuständigen nachfassen','Wirksamkeit vor Ort prüfen','Überfällige Punkte dem Bauführer melden','Wiederholte Mängel im Sicherheitsgespräch besprechen']},
+ gespraech:{t:'Sicherheitsgespräch und Mitwirkung',bild:{liste:['Gespräch sofort bei Fehlverhalten','Regelmässige Kurzschulung','Mitarbeitende bei Neuem einbezogen','Teilnehmende festgehalten']},
+  warum:'Fehlverhalten, das niemand anspricht, wird zur Gewohnheit. Ein kurzes, ruhiges Gespräch direkt vor Ort wirkt mehr als jede Weisung, und wer mitreden kann, hält sich eher an die Regel.',
+  soll:'Sollzustand: Bei Fehlverhalten sofort ein Sicherheitsgespräch; regelmässige Kurzschulungen mit Teilnehmerliste.',
+  v:['Sicherheitsgespräch heute führen','Thema in der nächsten Kurzschulung aufnehmen','Teilnehmende festhalten','Mitarbeitende nach Verbesserungen fragen']},
+ leitung:{t:'Werkleitungen',bild:1,
+  warum:'Wer gräbt, ohne die Leitungen zu kennen, trifft mit dem Bagger eine Gas- oder Stromleitung. Ein Treffer an einer Stromleitung kann tödlich sein, ein Gasleck kann explodieren, ein Wasserleitungsbruch unterspült den Graben.',
+  soll:'Sollzustand: Leitungen auf dem Boden markiert (Farbe je Medium), Werkleitungspläne aktuell auf der Baustelle, in Leitungsnähe von Hand freilegen.',
+  v:['Werkleitungspläne einholen und auf die Baustelle bringen','Leitungen orten und am Boden markieren','In Leitungsnähe nur von Hand oder mit Saugbagger freilegen','Werk für Ausserbetriebnahme kontaktieren']},
+ freil:{t:'Freileitungen',bild:{liste:['Abstand zur Leitung festgelegt','Leitung markiert oder abgeschrankt','Werk informiert','Ausleger und Kran nie in die Nähe']},
+  warum:'Bei Hochspannung kann der Strom überschlagen, ohne dass der Ausleger die Leitung berührt. Wer dann die Maschine anfasst, wird Teil des Stromkreises. Der nötige Abstand hängt von der Spannung ab und wird mit dem Werk festgelegt.',
+  soll:'Sollzustand: Sicherheitsabstand mit dem Werk festgelegt und markiert, oder Leitung abgeschaltet beziehungsweise abgeschrankt.',
+  v:['Arbeiten in Leitungsnähe sofort einstellen','Werk kontaktieren und Abstand festlegen','Begrenzung für Ausleger und Kran markieren','Leitung abschalten lassen']},
+ strom:{t:'Strom und Elektrogeräte',bild:{liste:['Verteiler geschlossen, FI geprüft','Kabel ganz und geschützt geführt','Defekte Geräte sofort ausgeschieden','Anschluss durch Fachperson']},
+  warum:'Ein beschädigtes Kabel oder ein Gerät mit defekter Isolation steht unter Spannung, ohne dass man es sieht. Auf nassen Baustellen reicht das für einen tödlichen Stromschlag. Der FI-Schutz schaltet nur ab, wenn er vorhanden ist und funktioniert.',
+  soll:'Sollzustand: Verteiler geschlossen und mit FI/RCD, Kabel unbeschädigt und geschützt geführt, defekte Geräte markiert und weg.',
+  v:['Defektes Gerät oder Kabel sofort ausser Betrieb nehmen','FI/RCD testen oder mobilen FI einsetzen','Kabel hochhängen oder mit Kabelbrücke schützen','Elektriker aufbieten']},
+ verkehr:{t:'Öffentlicher Verkehr und Dritte',bild:2,
+  warum:'Der Verkehr fährt dicht am Arbeitsplatz vorbei, oft abgelenkt und zu schnell. Ohne korrekte Signalisation und lückenlose Abschrankung erkennt der Lenker die Baustelle zu spät, und Fussgänger, Kinder oder Velofahrende geraten in den Gefahrenbereich.',
+  soll:'Sollzustand: Signalisation nach bewilligtem Plan, Abschrankung ohne Lücken, nachts beleuchtet, Fussgänger und Velos sicher um die Baustelle geführt.',
+  v:['Signalisation nach Plan korrigieren','Lücke in der Abschrankung schliessen','Beleuchtung der Absperrung ersetzen oder ergänzen','Fussgängerführung neu stellen']},
+ wege:{t:'Fahrwege auf der Baustelle',bild:{liste:['Fussweg und Fahrweg getrennt','Pisten tragfähig, ohne Löcher','Rampen nicht zu steil','Rettungszufahrt frei']},
+  warum:'Wo Personen und Maschinen den gleichen Weg benutzen, wird früher oder später jemand angefahren. Aufgeweichte Pisten und zu steile Rampen bringen Dumper und Lastwagen zum Kippen.',
+  soll:'Sollzustand: Fuss- und Fahrwege getrennt und markiert, Pisten tragfähig und unterhalten, Rampen den Fahrzeugen angepasst.',
+  v:['Fussweg abtrennen und markieren','Piste instand stellen','Rampe abflachen','Wartezone für Fahrzeuge bezeichnen']},
+ sicht:{t:'Sichtbarkeit',bild:3,
+  warum:'Wer nicht gesehen wird, wird angefahren, vom Strassenverkehr oder von der eigenen Baumaschine. Warnkleidung wirkt nur, wenn sie sauber und geschlossen ist und zur Verkehrssituation passt. Bei Dämmerung und Nacht braucht es zusätzlich Licht.',
+  soll:'Sollzustand: Warnkleidung geschlossen und sauber, Reflexstreifen sichtbar, Arbeitsplatz bei schlechter Sicht beleuchtet.',
+  v:['Warnkleidung ersetzen (sauber, passende Klasse)','Arbeitsplatz zusätzlich beleuchten','Mitarbeitende auf Sichtbarkeit instruieren']},
+ rueck:{t:'Blickkontakt und Rückwärtsfahren',bild:4,
+  warum:'Bagger, Dumper und Lastwagen haben grosse tote Winkel. Beim Rückwärtsfahren und Schwenken sieht der Fahrer niemanden hinter oder neben der Maschine. Wer dazwischen steht, wird überrollt oder eingeklemmt.',
+  soll:'Sollzustand: Niemand im toten Winkel oder Schwenkbereich. Erst Blickkontakt, dann in den Gefahrenbereich. Rückwärts nur mit Einweiser oder freier Sicht.',
+  v:['Einweiser bestimmen und instruieren','Schwenk- und Rückfahrbereich absperren','Rückfahrkamera oder -warner instand stellen','Regel «erst Blickkontakt» mit der Equipe besprechen']},
+ masch:{t:'Zustand der Maschine',bild:5,
+  warum:'Defekte Bremsen, Leckagen, überbrückte Sicherheitsschalter oder fehlende Schutzeinrichtungen merkt man erst, wenn es zu spät ist. Eine Maschine, die vor dem Einsatz nicht kontrolliert wurde, kippt, rollt weg oder verletzt den Bediener.',
+  soll:'Sollzustand: Abfahrtskontrolle gemacht (Bremsen, Spiegel, Kamera, Warner, Leckagen), Wartung aktuell, Schutzeinrichtungen und Gurt funktionieren, Maschine gesichert abgestellt.',
+  v:['Maschine ausser Betrieb nehmen und reparieren lassen','Abfahrtskontrolle nachholen und festhalten','Schutzeinrichtung wieder montieren','Wartung beim Werkhof anmelden']},
+ ausweis:{t:'Berechtigung des Bedieners',bild:{liste:['Ausweis oder Ausbildung vorhanden','Auf diese Maschine instruiert','Vom Vorgesetzten beauftragt','Nachweis in der Personenliste']},
+  warum:'Wer eine Maschine, einen Kran oder eine Kettensäge ohne Ausbildung bedient, kennt die Grenzen des Geräts nicht: Kippmoment, Bremsweg, Rückschlag. Bei einem Unfall ohne gültigen Nachweis haftet zudem der Vorgesetzte, der ihn eingesetzt hat.',
+  soll:'Sollzustand: Nur ausgebildete, auf das konkrete Gerät instruierte und beauftragte Personen bedienen es; der Nachweis ist hinterlegt.',
+  v:['Bediener sofort ablösen','Berechtigte Person einsetzen','Ausbildung oder Instruktion organisieren','Ausweis in der Personenliste nachtragen']},
+ standsich:{t:'Standsicherheit der Maschine',bild:{liste:['Abstand zu Kanten und Böschungen','Tragfähiger Untergrund','Abstützung auf Unterlagsplatten','Keine Hohlräume, Schächte darunter']},
+  warum:'Am Graben- oder Böschungsrand gibt der Boden unter dem Gewicht einer Maschine nach. Die Maschine kippt in den Graben oder auf die Leute daneben. Bei Kran und Bohrgerät genügt ein einsinkender Stützfuss.',
+  soll:'Sollzustand: Maschine steht auf tragfähigem Untergrund, mit Abstand zu Kanten; Stützen auf genügend grossen Unterlagsplatten.',
+  v:['Maschine vom Rand wegstellen','Unterlagsplatten unterlegen','Untergrund beurteilen lassen','Kippbereich absperren']},
+ last:{t:'Anschlagmittel und Lasten',bild:6,
+  warum:'Reisst eine Kette oder rutscht die Last aus der Schlinge, fällt sie ohne Vorwarnung. Wer darunter oder daneben steht, hat keine Chance. Beschädigte oder ungeeignete Anschlagmittel sind die häufigste Ursache.',
+  soll:'Sollzustand: Anschlagmittel mit Etikette, geprüft und ohne Schäden, passend zur Last; Gefahrenbereich unter der Last frei; Last mit Führungsseil führen.',
+  v:['Beschädigtes Anschlagmittel ausscheiden und ersetzen','Gefahrenbereich der Last absperren','Führungsseil verwenden','Anschläger instruieren']},
+ kran:{t:'Kran',bild:6,
+  warum:'Ein Kran, der falsch aufgestellt, nicht geprüft oder schlecht verständigt ist, verliert seine Last oder kippt. Missverständnisse zwischen Kranführer und Anschläger enden oft mit eingeklemmten Händen oder einer pendelnden Last.',
+  soll:'Sollzustand: Kran geprüft (Kranbuch), standsicher aufgestellt, Schwenkbereich frei, eindeutige Zeichen oder Funk, nach Arbeitsende windfrei gestellt.',
+  v:['Kranprüfung nachweisen oder veranlassen','Verständigung festlegen (Funk, Handzeichen)','Schwenkbereich und Gegenballast absperren','Kran nach Arbeitsende windfrei stellen']},
+ absturz:{t:'Absturzsicherung',bild:7,
+  warum:'Abstürze sind auf dem Bau eine der häufigsten Ursachen tödlicher Unfälle, auch aus geringer Höhe. Ein fester Seitenschutz verhindert den Sturz, bevor er passiert. Ab 2 m Absturzhöhe ist Seitenschutz Pflicht.',
+  soll:'Sollzustand: dreiteiliger Seitenschutz mit Holm auf 1 m Höhe, Zwischenholm und Bordbrett (mind. 15 cm); nichts kann herunterfallen.',
+  v:['Seitenschutz montieren (Holm, Zwischenholm, Bordbrett)','Absperrung mit Abstand zur Kante stellen','Bis zur Sicherung Bereich sperren','Bordbrett gegen herabfallende Teile ergänzen']},
+ oeffnung:{t:'Öffnungen und Schächte',bild:{liste:['Abdeckung durchtrittsicher','Gegen Verschieben gesichert','Gekennzeichnet oder abgeschrankt','Nachts beleuchtet']},
+  warum:'Eine offene oder lose abgedeckte Öffnung sieht man oft nicht, besonders mit Material in den Händen. Wer durchtritt, stürzt in den Schacht oder bricht sich das Bein.',
+  soll:'Sollzustand: Öffnung durchtrittsicher abgedeckt, gegen Verschieben gesichert und gekennzeichnet, oder ringsum abgeschrankt.',
+  v:['Öffnung sofort abdecken und fixieren','Abdeckung kennzeichnen','Ringsum abschranken','Beleuchtung für die Nacht stellen']},
+ zugang:{t:'Zugänge und Leitern',bild:8,
+  warum:'Improvisierte Aufstiege, beschädigte oder falsch gestellte Leitern führen zu Stürzen. Wer über Spriessen klettert oder an der Grabenwand hochsteigt, kommt im Notfall nicht schnell genug heraus.',
+  soll:'Sollzustand: Treppe, Rampe oder gesicherte Leiter, 1 m über die Austrittsstelle, Anstellwinkel etwa 70°, Übergänge mit Geländer.',
+  v:['Leiter richtig aufstellen und sichern','Beschädigte Leiter ausscheiden','Treppe oder Rampe erstellen','Übergang mit Geländer bauen']},
+ ordnung:{t:'Ordnung und Stolpergefahr',bild:{liste:['Wege frei und eben','Material geordnet gelagert','Kabel und Schläuche geführt','Bei Frost gestreut']},
+  warum:'Stolpern, Ausrutschen und Stürze auf gleicher Ebene sind auf Baustellen die häufigste Unfallursache überhaupt. Herumliegendes Material, Schläuche, Schlamm und Eis führen zu Verstauchungen und Brüchen.',
+  soll:'Sollzustand: Wege frei und eben, Material standsicher und geordnet gelagert, Kabel und Schläuche geführt, bei Frost gestreut.',
+  v:['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Abfallmulde leeren oder zusätzliche stellen','Schlamm entfernen, bei Frost streuen']},
+ geruest:{t:'Gerüste und Schalungen',bild:{liste:['Beläge vollständig, gesichert','Seitenschutz aussen und innen','Verankert, tragfähig abgestellt','Änderungen nur durch Gerüstbauer']},
+  warum:'Ein Gerüst mit fehlendem Belag, losem Seitenschutz oder ohne Verankerung bricht ein oder kippt. Schalungen, die nicht richtig gespriesst sind, geben beim Betonieren nach. Herausstehende Armierungseisen spiessen bei einem Sturz auf.',
+  soll:'Sollzustand: Beläge vollständig und gesichert, Seitenschutz aussen und innen, verankert; Schalung nach Anleitung; Armierungseisen abgedeckt.',
+  v:['Gerüst sperren bis zur Instandstellung','Gerüstbauer aufbieten','Fehlenden Belag oder Seitenschutz ergänzen','Armierungseisen mit Schutzkappen abdecken']},
+ graben:{t:'Gräben und Baugruben',bild:9,
+  warum:'Ein Kubikmeter Erde wiegt rund 2 Tonnen. Bricht eine ungesicherte Grabenwand ein, wird der Brustkorb eingedrückt und man kann nicht mehr atmen, auch wenn man nur teilweise verschüttet ist. Wasser, Frost und Erschütterungen schwächen die Wand zusätzlich.',
+  soll:'Sollzustand: ab 1.50 m Tiefe geböscht oder gespriesst, Randstreifen frei von Aushub und Material, sicherer Zugang, nach Regen oder Frost neu beurteilt.',
+  v:['Graben spriessen oder abböschen','Aushub vom Rand wegnehmen','Sicheren Zugang erstellen','Bis zur Sicherung niemand in den Graben']},
+ schacht:{t:'Schächte und enge Räume',bild:{liste:['Messung vor und während Einstieg','Lüftung läuft','Sicherungsposten oben','Dreibein und Rettungsgurt bereit']},
+  warum:'In Schächten und Kanälen sammeln sich Faulgase, Kohlendioxid oder es fehlt Sauerstoff, ohne dass man es riecht. Nach wenigen Atemzügen wird man bewusstlos. Oft sterben dabei auch die Kollegen, die ohne Ausrüstung hinterhersteigen.',
+  soll:'Sollzustand: Einstieg nur nach Messung, mit Lüftung, Sicherungsposten oben und bereitstehendem Rettungsgerät; keine Verbrennungsmotoren im Schacht.',
+  v:['Einstieg sofort stoppen','Gasmessung durchführen','Lüftung einsetzen','Sicherungsposten und Rettungsmittel stellen']},
+ psa:{t:'Persönliche Schutzausrüstung',bild:10,
+  warum:'Helm, Sicherheitsschuhe, Schutzbrille und Handschuhe sind der letzte Schutz, wenn alles andere versagt: der fallende Stein, der Nagel im Brett, der Splitter beim Trennen. Sie helfen nur, wenn sie getragen werden und intakt sind.',
+  soll:'Sollzustand: Helm, Sicherheitsschuhe und Warnkleidung immer; je nach Arbeit Schutzbrille, Gehörschutz, Handschuhe und Atemschutz.',
+  v:['Fehlende PSA abgeben','Beschädigte PSA ersetzen','Tragpflicht mit der Equipe besprechen','PSA-Vorrat auf der Baustelle ergänzen']},
+ laerm:{t:'Lärm, Staub und Abgase',bild:{liste:['Nass schneiden oder absaugen','Atemschutz FFP2/FFP3 wo nötig','Gehörschutz bei lauten Arbeiten','Partikelfilter gewartet']},
+  warum:'Quarzstaub aus Beton und Stein setzt sich in der Lunge fest und führt nach Jahren zu Silikose. Lärm über 85 dB(A) schädigt das Gehör dauerhaft. Beides tut im Moment nicht weh, deshalb wird es unterschätzt.',
+  soll:'Sollzustand: Staub vermeiden (nass, absaugen), wo nötig Atemschutz; Gehörschutz bei lauten Arbeiten; Partikelfilter der Maschinen gewartet.',
+  v:['Nass schneiden oder Absaugung einsetzen','FFP2/FFP3-Masken abgeben','Gehörschutz abgeben und Tragen durchsetzen','Arbeitsbereich für Unbeteiligte sperren']},
+ hitze:{t:'Wetter, Hitze und Kälte',bild:{liste:['Trinkwasser und Schatten','Schwere Arbeit am Morgen','Kälteschutz und Aufwärmen','Abbruch bei Gewitter oder Sturm']},
+  warum:'Hitze führt zu Erschöpfung und Hitzschlag, starke Sonne zu Hautkrebs. Kälte, Nässe und Eis machen die Hände steif und Wege rutschig. Gewitter und Sturm sind auf offenen Baustellen und an Kranen lebensgefährlich.',
+  soll:'Sollzustand: bei Hitze Trinkwasser, Schatten, Pausen und Kopfbedeckung; bei Kälte Schutzkleidung und Aufwärmen; Abbruchkriterien für Unwetter bekannt.',
+  v:['Trinkwasser und Schattenplatz bereitstellen','Schwere Arbeiten auf den Morgen legen','Sonnenschutz abgeben','Abbruchkriterien für Gewitter und Sturm festlegen']},
+ ergo:{t:'Heben, Tragen und Vibration',bild:{liste:['Hebehilfen für schwere Teile','Lasten zu zweit oder maschinell','Vibrationsarme Geräte','Pausen und Wechsel']},
+  warum:'Schwere Randsteine, Rohre und Schachtteile von Hand zu heben, schadet dem Rücken auf Dauer. Abbruchhammer, Stampfer und Rüttelplatte schädigen bei langem Einsatz Nerven und Blutgefässe der Hände.',
+  soll:'Sollzustand: Hebehilfen für schwere Teile, vibrationsarme Geräte, Einsatzzeiten begrenzt und abgewechselt.',
+  v:['Hebehilfe oder Maschine einsetzen','Lasten zu zweit tragen','Vibrationsarmes Gerät einsetzen','Arbeit abwechseln und Pausen einplanen']},
+ haut:{t:'Hautschutz',bild:{liste:['Handschuhe bei Zement und Belag','Lange Kleidung','Hautschutzmittel','Waschgelegenheit']},
+  warum:'Nasser Zement ist stark alkalisch und verätzt die Haut, oft erst nach Stunden bemerkt. Wiederholter Kontakt führt zu Ekzemen. Heisser Belag verursacht schwere Verbrennungen.',
+  soll:'Sollzustand: Handschuhe und lange Kleidung bei Zement und Belag, Hautschutzmittel und Waschgelegenheit vorhanden.',
+  v:['Geeignete Handschuhe abgeben','Hautschutzmittel bereitstellen','Waschgelegenheit einrichten']},
+ hygiene:{t:'Sanitär und Hygiene',bild:{liste:['Toilette und Waschgelegenheit','Aufenthaltsraum sauber','Impfschutz bei Abwasser','Händewaschen vor dem Essen']},
+  warum:'Bei Arbeiten mit Abwasser und Schlamm drohen Infektionen. Ohne Waschgelegenheit wird mit verschmutzten Händen gegessen. Fehlende Toiletten und Aufenthaltsräume sind zudem ein Verstoss gegen die Pflichten des Arbeitgebers.',
+  soll:'Sollzustand: Toilette, Waschgelegenheit und Aufenthaltsraum sauber vorhanden; Impfschutz bei Abwasserarbeiten geklärt.',
+  v:['Toilette oder Waschgelegenheit stellen','Reinigung organisieren','Impfschutz mit Arbeitsmedizin klären']},
+ fit:{t:'Arbeitsfähigkeit',bild:{liste:['Kein Alkohol, keine Drogen','Keine beeinträchtigenden Medikamente','Ausgeruht','Vorsorge-Untersuchungen gemacht']},
+  warum:'Alkohol, Drogen, gewisse Medikamente und Übermüdung verlängern die Reaktionszeit und verschlechtern das Urteil. An einer Maschine oder im Verkehrsbereich gefährdet das nicht nur die betroffene Person.',
+  soll:'Sollzustand: Alle sind arbeitsfähig; wer es nicht ist, arbeitet nicht an gefährlichen Stellen.',
+  v:['Person von der Arbeit abziehen','Gespräch mit dem Vorgesetzten führen','Arbeitsfähigkeit vor Wiederaufnahme klären']},
+ allein:{t:'Alleinarbeit',bild:{liste:['Alleinarbeit vermieden','Sonst Meldesystem oder Kontrollrufe','Notfallablauf bekannt']},
+  warum:'Wer allein arbeitet und verunfallt, wird unter Umständen erst nach Stunden gefunden. Bei gefährlichen Arbeiten wie in Schächten oder an Maschinen ist das lebensgefährlich.',
+  soll:'Sollzustand: Gefährliche Alleinarbeit ist ausgeschlossen oder mit Meldesystem und regelmässigem Kontakt geregelt.',
+  v:['Zweite Person einteilen','Kontrollrufe vereinbaren','Notrufgerät abgeben']},
+ notfall:{t:'Notfallorganisation',bild:0,
+  warum:'Im Notfall zählt jede Minute. Wer Notfallnummer, Standort, Erste-Hilfe-Material und Zufahrt für die Ambulanz nicht kennt, verliert Zeit, und die Ambulanz findet die Baustelle nicht.',
+  soll:'Sollzustand: Notfallblatt mit Kroki und Koordinaten ausgehängt, Erste-Hilfe-Material und Nothelfer vor Ort, Zufahrt frei, Sammelplatz bekannt.',
+  v:['Notfallblatt mit Kroki aushängen','Erste-Hilfe-Material ergänzen','Zufahrt für die Ambulanz freihalten','Equipe über Notfallablauf instruieren']},
+ brand:{t:'Brand und Gas',bild:{liste:['Gasflaschen stehend gesichert','Feuerlöscher griffbereit','Brennbares entfernt','Brandwache nach Heissarbeit']},
+  warum:'Schweissen, Trennen und Flämmen entzünden brennbares Material in der Umgebung, oft erst lange nach Arbeitsende. Undichte Gasflaschen und Schläuche können explodieren.',
+  soll:'Sollzustand: Gasflaschen stehend gesichert mit Schutzkappe, Feuerlöscher griffbereit, Brennbares entfernt, Nachkontrolle nach Heissarbeiten.',
+  v:['Gasflasche sichern oder ersetzen','Feuerlöscher bereitstellen','Brennbares Material entfernen','Brandwache nach Heissarbeit organisieren']},
+ umwelt:{t:'Gefahrstoffe und Umwelt',bild:{liste:['Kanister beschriftet und dicht','Auffangwanne','Ölbindemittel vor Ort','Abfall getrennt']},
+  warum:'Ausgelaufenes Öl oder Diesel versickert schnell und verschmutzt grosse Mengen Grundwasser. Unbeschriftete Gebinde führen zu Verwechslungen und Vergiftungen. Belastetes Aushubmaterial muss getrennt entsorgt werden.',
+  soll:'Sollzustand: Kanister beschriftet und dicht in Auffangwanne, Ölbindemittel bereit, Abfall getrennt, Aushub vorher auf Belastung abgeklärt.',
+  v:['Kanister beschriften','Auffangwanne stellen','Ölbindemittel auf die Baustelle bringen','Abfall trennen und Mulde bestellen']},
+ rueckbau:{t:'Rückbau und Schadstoffe',bild:{liste:['Schadstoffe vorher ermittelt','Bei Asbestverdacht sofort Stopp','Rückbaukonzept mit Statik','Fallbereich abgesperrt']},
+  warum:'Asbest wurde bis 1990 verbaut; die Fasern verursachen Jahrzehnte später Krebs. Beim Abbruch ändern sich zudem laufend die Lasten, Bauteile stürzen unkontrolliert ein.',
+  soll:'Sollzustand: Schadstoffe vor Beginn ermittelt, Rückbaukonzept vorhanden, Fallbereich abgesperrt; bei Verdacht sofort Stopp.',
+  v:['Arbeiten bei Verdacht sofort einstellen','Schadstoffabklärung veranlassen','Fallbereich absperren','Rückbaukonzept einholen']},
+ geraet:{t:'Handgeräte, Sägen, Trennscheiben',bild:{liste:['Schutzhaube und Not-Halt da','Richtige Scheibe oder Blatt','Nass schneiden oder absaugen','Kabel und Stecker ganz']},
+  warum:'Trennscheiben und Sägeblätter laufen mit hoher Drehzahl. Ein falsches oder beschädigtes Blatt zerbricht, das Gerät schlägt zurück. Ohne Schutzhaube gehen Splitter in Gesicht und Hände.',
+  soll:'Sollzustand: Schutzeinrichtungen vorhanden und funktionstüchtig, Blatt oder Scheibe passend und unbeschädigt, Gerät vor Gebrauch kontrolliert.',
+  v:['Gerät ausser Betrieb nehmen','Schutzhaube montieren','Passendes Blatt oder Scheibe einsetzen','Defektes Gerät in die Reparatur geben']},
+ hub:{t:'Hubarbeitsbühne',bild:{liste:['Sicht- und Funktionskontrolle','Untergrund tragfähig, abgestützt','Nutzlast eingehalten','Notablass bekannt']},
+  warum:'Hubarbeitsbühnen kippen auf weichem Boden oder bei Überlast. Am Ausleger kann man gegen ein Hindernis gedrückt oder herausgeschleudert werden. Ohne Hilfsperson am Boden kommt im Notfall niemand herunter.',
+  soll:'Sollzustand: Kontrolle vor Arbeitsbeginn, tragfähiger Untergrund, Nutzlast eingehalten, bei Auslegerbühnen PSA gegen Absturz, Notablass am Boden bekannt.',
+  v:['Bühne ausser Betrieb nehmen','Untergrund und Abstützung korrigieren','Hilfsperson am Boden bestimmen','Bediener instruieren']},
+ fahrzeug:{t:'Fahrzeuge und Ladung',bild:{liste:['Pneus, Bremsen, Licht ok','Ladung gesichert','Gewicht eingehalten','Pannendreieck, Verbandmaterial']},
+  warum:'Ungesicherte Ladung rutscht bei einer Vollbremsung nach vorne und wird zum Geschoss. Überladene Fahrzeuge bremsen schlechter. Abgefahrene Pneus und defekte Beleuchtung führen zu Verkehrsunfällen.',
+  soll:'Sollzustand: Fahrzeug technisch in Ordnung, Ladung mit Zurrgurten oder Trenngitter gesichert, Gesamtgewicht eingehalten, Notfallausrüstung an Bord.',
+  v:['Ladung sichern','Fahrzeug in die Werkstatt geben','Überladung abbauen','Notfallausrüstung ergänzen']}
+};
+const PUNKT_THEMA={"TC-01":"orga","TC-02":"leitung","TC-03":"graben","TC-04":"masch","TC-05":"strom","TC-06":"wege","TC-07":"rueck","TC-08":"last","TC-09":"absturz","TC-10":"psa","TC-11":"ordnung","TC-12":"notfall","TC-13":"hitze","TC-14":"sub","TC-15":"umwelt","TC-16":"kontrolle","TC-17":"verkehr","TC-18":"geruest","TC-19":"fit","RG-01":"orga","RG-02":"orga","RG-03":"instr","RG-04":"sub","RG-05":"verkehr","RG-06":"verkehr","RG-07":"sicht","RG-08":"wege","RG-09":"rueck","RG-10":"rueck","RG-11":"ausweis","RG-12":"masch","RG-13":"masch","RG-14":"last","RG-15":"last","RG-16":"ausweis","RG-17":"kran","RG-18":"absturz","RG-19":"oeffnung","RG-20":"absturz","RG-21":"zugang","RG-22":"zugang","RG-23":"geruest","RG-24":"geruest","RG-25":"graben","RG-26":"graben","RG-27":"graben","RG-28":"schacht","RG-29":"schacht","RG-30":"psa","RG-31":"sicht","RG-32":"laerm","RG-33":"notfall","RG-34":"hitze","RG-35":"allein","RG-36":"umwelt","RG-37":"brand","RG-38":"strom","RG-39":"strom","RG-40":"freil","AU-01":"orga","AU-02":"orga","AU-03":"leitung","AU-04":"instr","AU-05":"sub","AU-06":"kontrolle","AU-07":"gespraech","AU-08":"wege","AU-09":"wege","AU-10":"rueck","AU-11":"rueck","AU-12":"verkehr","AU-13":"wege","AU-14":"sicht","AU-15":"verkehr","AU-16":"wege","AU-17":"graben","AU-18":"graben","AU-19":"absturz","AU-20":"graben","AU-21":"graben","AU-22":"graben","AU-23":"graben","AU-24":"graben","AU-25":"graben","AU-26":"graben","AU-27":"schacht","AU-28":"schacht","AU-29":"schacht","AU-30":"schacht","AU-31":"oeffnung","AU-32":"schacht","AU-33":"schacht","AU-34":"schacht","AU-35":"schacht","AU-36":"masch","AU-37":"masch","AU-38":"masch","AU-39":"ausweis","AU-40":"masch","AU-41":"masch","AU-42":"masch","AU-43":"masch","AU-44":"masch","AU-45":"brand","AU-46":"masch","AU-47":"last","AU-48":"laerm","AU-49":"fahrzeug","AU-50":"last","AU-51":"last","AU-52":"last","AU-53":"kran","AU-54":"kran","AU-55":"kran","AU-56":"ausweis","AU-57":"kran","AU-58":"last","AU-59":"last","AU-60":"kran","AU-61":"strom","AU-62":"strom","AU-63":"strom","AU-64":"strom","AU-65":"strom","AU-66":"strom","AU-67":"strom","AU-68":"freil","AU-69":"strom","AU-70":"zugang","AU-71":"zugang","AU-72":"zugang","AU-73":"zugang","AU-74":"geruest","AU-75":"geruest","AU-76":"geruest","AU-77":"geruest","AU-78":"geruest","AU-79":"geruest","AU-80":"geruest","AU-81":"geruest","AU-82":"absturz","AU-83":"geruest","AU-84":"geruest","AU-85":"geruest","AU-86":"absturz","AU-87":"oeffnung","AU-88":"absturz","AU-89":"absturz","AU-90":"ordnung","AU-91":"ordnung","AU-92":"ordnung","AU-93":"psa","AU-94":"sicht","AU-95":"psa","AU-96":"psa","AU-97":"laerm","AU-98":"laerm","AU-99":"psa","AU-100":"hitze","AU-101":"hitze","AU-102":"ergo","AU-103":"fit","AU-104":"hygiene","AU-105":"notfall","AU-106":"notfall","AU-107":"brand","AU-108":"umwelt","AU-109":"umwelt","AU-110":"hitze","AU-111":"allein","AU-112":"notfall","AU-113":"brand","AU-114":"brand","AU-115":"laerm","AU-116":"umwelt","AU-117":"umwelt","AU-118":"rueckbau","AU-119":"rueckbau","AU-120":"rueckbau","AU-121":"leitung","AU-122":"rueckbau","MG-01":"masch","MG-02":"masch","MG-03":"ausweis","MG-04":"masch","MG-05":"masch","MG-06":"ausweis","MG-07":"masch","MG-08":"masch","MG-09":"ausweis","MG-10":"masch","MG-11":"masch","MG-12":"ausweis","MG-13":"masch","MG-14":"masch","MG-15":"ausweis","MG-16":"masch","MG-17":"masch","MG-18":"ausweis","MG-19":"masch","MG-20":"masch","MG-21":"ausweis","MG-22":"masch","MG-23":"masch","MG-24":"ausweis","MG-25":"geraet","MG-26":"geraet","MG-27":"ausweis","MG-28":"geraet","MG-29":"geraet","MG-30":"ausweis","MG-31":"masch","MG-32":"rueck","MG-33":"standsich","MG-34":"masch","MG-35":"standsich","MG-36":"masch","MG-37":"last","MG-38":"masch","MG-39":"standsich","MG-40":"masch","MG-41":"standsich","MG-42":"masch","MG-43":"standsich","MG-44":"last","MG-45":"rueck","MG-46":"last","MG-47":"masch","MG-48":"masch","MG-49":"geraet","MG-50":"geraet","MG-51":"geraet","MG-52":"geraet","MG-53":"hub","MG-54":"hub","MG-55":"hub","MG-56":"hub","MG-57":"hub","MG-58":"hub","MG-59":"kran","MG-60":"ausweis","MG-61":"kran","MG-62":"kran","MG-63":"geraet","MG-64":"geraet","MG-65":"ausweis","MG-66":"brand","MG-67":"brand","MG-68":"brand","MG-69":"last","MG-70":"last","MG-71":"last","MG-72":"geraet","MG-73":"geraet","MG-74":"geraet","SA-01":"orga","SA-02":"kontrolle","SA-03":"orga","SA-04":"orga","SA-05":"instr","SA-06":"ausweis","SA-07":"orga","SA-08":"sub","SA-09":"orga","SA-10":"kontrolle","SA-11":"kontrolle","SA-12":"kontrolle","SA-13":"notfall","SA-14":"notfall","SA-15":"gespraech","SA-16":"gespraech","SA-17":"laerm","SA-18":"fit","SA-19":"kontrolle","SA-20":"kontrolle","AU-123":"instr","AU-124":"lernende","AU-125":"verkehr","AU-126":"verkehr","AU-127":"fahrzeug","AU-128":"verkehr","AU-129":"graben","AU-130":"graben","AU-131":"notfall","AU-132":"umwelt","AU-133":"ergo","AU-134":"haut","AU-135":"hygiene","AU-136":"ordnung","MG-75":"last","MG-76":"last","MG-77":"last","MG-78":"last","MG-79":"last","MG-80":"fahrzeug","MG-81":"fahrzeug","MG-82":"fahrzeug","MG-83":"fahrzeug","MG-84":"fahrzeug","MG-85":"fahrzeug","MG-86":"fahrzeug","MG-87":"fahrzeug","MG-88":"fahrzeug","MG-89":"fahrzeug","WC-01":"orga","WC-02":"instr","WC-03":"leitung","WC-04":"freil","WC-05":"verkehr","WC-06":"verkehr","WC-07":"sicht","WC-08":"rueck","WC-09":"ausweis","WC-10":"masch","WC-11":"strom","WC-12":"last","WC-13":"last","WC-14":"absturz","WC-15":"oeffnung","WC-16":"zugang","WC-17":"ordnung","WC-18":"graben","WC-19":"graben","WC-20":"psa","WC-21":"laerm","WC-22":"notfall","WC-23":"umwelt","WC-24":"kontrolle"};
+function themaFuer(p){const id=p.vorlage||p.ID;return THEMA[PUNKT_THEMA[id]]||THEMA[THEMA_REGEL[p.regel]]||THEMA.orga;}
+const THEMA_REGEL={1:'orga',2:'verkehr',3:'sicht',4:'rueck',5:'masch',6:'last',7:'absturz',8:'zugang',9:'graben',10:'psa',0:'orga'};
+function sbListe(titel,items){return `<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="0" y="0" width="240" height="30" rx="10" fill="#2E8B57"/><rect x="0" y="20" width="240" height="10" fill="#2E8B57"/><text x="12" y="20" font-size="12" font-weight="700" fill="#fff">${esc(titel).slice(0,34)}</text>
+  ${items.slice(0,5).map((t,i)=>`<circle cx="18" cy="${48+i*24}" r="7" fill="#2E8B57"/><path d="M14.5 ${48+i*24}l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none"/><text x="32" y="${52+i*24}" font-size="11" fill="#222">${esc(t)}</text>`).join('')}</svg>`;}
+SOLLBILD.instr=`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="18" y="18" width="92" height="66" rx="4" fill="#fff" stroke="#555"/><text x="28" y="40" font-size="13" font-weight="700" fill="#D0342C">10 Regeln</text><path d="M28 52h70M28 62h60M28 72h66" stroke="#999" stroke-width="2"/>${SB_MANN(130,92,1)}${SB_MANN(160,92,1)}${SB_MANN(190,92,1)}${SB_MANN(64,140,1)}
+  <rect x="120" y="108" width="104" height="40" rx="4" fill="#fff" stroke="#555"/><text x="126" y="121" font-size="9" fill="#333">Name · Datum · Visum</text><path d="M128 132 q8 -8 16 0 t16 0 M128 142 q10 -6 20 0" stroke="#2F6FB5" stroke-width="1.6" fill="none"/>${SB_OK}</svg>`;
+function sollbildFuer(p){const th=themaFuer(p);const b=th.bild;if(b&&typeof b==='object'&&b.liste)return sbListe(th.t,b.liste);return SOLLBILD[b]||SOLLBILD[0];}
+
+
+/* ===== Notfallblatt mit Kroki (eine Erfassung, ein Dokument) ===== */
+const NOTRUF=[['Ambulanz','144'],['Polizei','117'],['Feuerwehr / Öl','118'],['Toxi-Center (Vergiftungen)','145'],['Rettungsflugwacht (Rega)','1414']];
+const NF_MEDIEN='Information an Drittprivatpersonen oder Medien erfolgen ausschliesslich durch ein Mitglied der Geschäftsleitung!';
+function nfDaten(b){const n=Object.assign({strasse:'',plz:'',such:'',koord:'',sammel:'',zufahrt:'',arztName:'',arztAdr:'',arztTel:'',spitalName:'',spitalAdr:'',spitalTel:'',nothelfer:'',einbruch:'Kantonspolizei (Notruf 117)',medien:NF_MEDIEN,kroki1:'',kroki1w:0,kroki1h:0,kroki2:'',kroki2w:0,kroki2h:0},b.notfall||{});return n;}
+function nfNothelfer(b){const n=nfDaten(b);if(n.nothelfer)return n.nothelfer;
+  return DB.personen.filter(p=>p.baustelle===b.id&&(p.ausweise||[]).some(a=>a.startsWith('Erste Hilfe'))).map(p=>p.name).join(', ');}
+/* Koordinaten: LV95, LV03 oder WGS84 erkennen; Umrechnung nach swisstopo-Näherungsformeln (Genauigkeit ~1 m) */
+function nfKoord(txt){const z=(String(txt||'').replace(/[’']/g,'').match(/\d+(?:[.,]\d+)?/g)||[]).map(x=>parseFloat(x.replace(',','.')));
+  if(z.length<2)return null;let [a,b]=z;
+  if(a>45&&a<48.5&&b>5&&b<11)return lv95aus(a,b);if(b>45&&b<48.5&&a>5&&a<11)return lv95aus(b,a);
+  if(a<b){const t=a;a=b;b=t;}
+  if(a>400000&&a<900000){a+=2000000;b+=1000000;}
+  if(!(a>2400000&&a<2900000&&b>1050000&&b<1320000))return null;
+  const y=(a-2600000)/1e6,x=(b-1200000)/1e6;
+  const lon=(2.6779094+4.728982*y+0.791484*y*x+0.1306*y*x*x-0.0436*y*y*y)*100/36;
+  const lat=(16.9023892+3.238272*x-0.270978*y*y-0.002528*x*x-0.0447*y*y*x-0.0140*x*x*x)*100/36;
+  return {e:Math.round(a),n:Math.round(b),lat,lon};}
+function lv95aus(lat,lon){const p=(lat*3600-169028.66)/10000,l=(lon*3600-26782.5)/10000;
+  const e=2600072.37+211455.93*l-10938.51*l*p-0.36*l*p*p-44.54*l*l*l;
+  const n=1200147.07+308807.95*p+3745.25*l*l+76.63*p*p-194.56*l*l*p+119.79*p*p*p;return {e:Math.round(e),n:Math.round(n),lat,lon};}
+const tsd=v=>String(v).replace(/\B(?=(\d{3})+(?!\d))/g,"'");
+function nfKoordText(k){return k?`LV95 ${tsd(k.e)} / ${tsd(k.n)} · WGS84 ${k.lat.toFixed(5)}, ${k.lon.toFixed(5)}`:'';}
+function nfKarte(k){return k?`https://www.google.com/maps/search/?api=1&query=${k.lat.toFixed(6)},${k.lon.toFixed(6)}`:'';}
+function nfRoute(k,ziel){return k&&ziel?`https://www.google.com/maps/dir/?api=1&origin=${k.lat.toFixed(6)},${k.lon.toFixed(6)}&destination=${encodeURIComponent(ziel)}`:'';}
+function nfFertig(b){const n=nfDaten(b);return !!(n.koord&&nfKoord(n.koord)&&n.spitalName&&n.sammel&&(n.kroki1||n.kroki2));}
+function bildGross(file,max,cb){const img=new Image();const url=URL.createObjectURL(file);img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);cb(c.toDataURL('image/jpeg',.78),c.width,c.height);};img.onerror=()=>{URL.revokeObjectURL(url);toast('Bild konnte nicht gelesen werden. Als JPG oder PNG versuchen.');};img.src=url;}
+
+function formNotfall(id){const b=DB.baustellen.find(x=>x.id===id);if(!b)return '';const n=nfDaten(b);const k=nfKoord(n.koord);
+  const f=(key,l,ph,full)=>`<label class="f${full?' full':''}"><span>${l}</span><input id="nf_${key}" value="${esc(n[key]||'')}" placeholder="${esc(ph||'')}"></label>`;
+  const bild=(nr,titel,hilfe)=>`<div class="f full"><span class="small" style="font-weight:600;color:var(--ink2)">${titel}</span><div class="small muted">${hilfe}</div>
+    ${n['kroki'+nr]?`<img src="${n['kroki'+nr]}" alt="${titel}" style="max-width:100%;max-height:260px;border:1px solid var(--line);border-radius:8px;margin:6px 0">`:''}
+    <div class="row"><label class="btn sm">${n['kroki'+nr]?'Bild ersetzen':'Bild wählen'}<input type="file" accept="image/*" hidden onchange="nfBild('${id}',${nr},this)"></label>${n['kroki'+nr]?`<button class="btn sm ghost crit-c" onclick="nfBildWeg('${id}',${nr})">Entfernen</button>`:''}</div></div>`;
+  return `<div class="card mt" id="fnf"><div class="row sp"><h3>Notfallblatt mit Kroki</h3><span class="pill ${nfFertig(b)?'g':'o'}">${nfFertig(b)?'vollständig':'unvollständig'}</span></div>
+  <p class="small muted">Einmal erfassen, ein Dokument: oben die Notfall-Liste, darunter das Kroki der Baustelle und auf Seite 2 die Umgebung mit Arzt und Spital. Auftragsnr., Objekt, Ort und Bauführer kommen aus der Baustelle.</p>
+  <div class="form mt">${f('strasse','Strasse','Oberzelgstrasse')}${f('plz','PLZ','5612')}${f('such','Suchkriterium','z. B. Oberzelg Etappe 1')}
+   <label class="f"><span>Koordinaten (LV95 oder WGS84)</span><input id="nf_koord" value="${esc(n.koord)}" placeholder="2'665'000 / 1'244'000" oninput="nfKoordHint(this.value)"><div class="small muted" id="nfKH">${k?nfKoordText(k):(n.koord?'<span class="crit-c">Koordinaten nicht erkannt</span>':'Aus map.geo.admin.ch: Rechtsklick auf den Ort, LV95 kopieren')}</div></label>
+   ${f('sammel','Sammelplatz','z. B. Installationsplatz beim Container')}${f('zufahrt','Zufahrt Ambulanz','z. B. über Bahnhofstrasse, Tor Nord')}
+   ${f('arztName','Arzt vor Ort (Name)','Dr. med. …')}${f('arztAdr','Arzt Adresse','Strasse, Ort')}${f('arztTel','Arzt Telefon','056 …')}
+   ${f('spitalName','Nächstes Spital','Spital Muri')}${f('spitalAdr','Spital Adresse','Spitalstrasse 144, 5630 Muri')}${f('spitalTel','Spital Telefon','056 …')}
+   ${f('nothelfer','Nothelfer auf der Baustelle',nfNothelfer(b)||'Namen',true)}${f('einbruch','Einbruch / Diebstahl','',true)}${f('medien','Hinweis Medien und Dritte','',true)}
+   ${bild(1,'Kroki Baustelle','Kartenausschnitt mit Baustelle, Zufahrt und Sammelplatz (Bildschirmfoto aus map.geo.admin.ch oder Google Maps, Markierungen können darauf eingezeichnet sein).')}
+   ${bild(2,'Kroki Umgebung','Grösserer Ausschnitt mit Baustelle, Arzt und Spital.')}
+  </div><div class="row mt"><button class="btn p" onclick="saveNotfall('${id}')">Notfallblatt speichern</button><button class="btn" onclick="saveNotfall('${id}',true)">Speichern und PDF</button></div></div>`;}
+function nfKoordHint(v){const e=document.getElementById('nfKH');if(!e)return;const k=nfKoord(v);e.innerHTML=k?esc(nfKoordText(k)):(v?'<span class="crit-c">Koordinaten nicht erkannt</span>':'');}
+function nfLesen(id){const b=DB.baustellen.find(x=>x.id===id);const n=nfDaten(b);
+  ['strasse','plz','such','koord','sammel','zufahrt','arztName','arztAdr','arztTel','spitalName','spitalAdr','spitalTel','nothelfer','einbruch','medien'].forEach(k=>{const e=document.getElementById('nf_'+k);if(e)n[k]=e.value.trim();});
+  b.notfall=n;return b;}
+function saveNotfall(id,pdf){const b=nfLesen(id);save();toast('Notfallblatt gespeichert.');if(pdf)pdfNotfall(id);else render();}
+function nfBild(id,nr,inp){const f=inp.files[0];if(!f)return;const b=nfLesen(id);
+  bildGross(f,1400,(d,w,h)=>{b.notfall['kroki'+nr]=d;b.notfall['kroki'+nr+'w']=w;b.notfall['kroki'+nr+'h']=h;save();render();setTimeout(()=>{const e=document.getElementById('fnf');if(e)e.scrollIntoView({block:'start'});},50);});}
+function nfBildWeg(id,nr){const b=nfLesen(id);b.notfall['kroki'+nr]='';save();render();}
+
+/* Anzeige für alle (Polier: nur lesen) */
+function notfallKarte(b){const n=nfDaten(b);const k=nfKoord(n.koord);const nh=nfNothelfer(b);
+  return `<div class="card nfk"><div class="row sp"><h3>Notfallblatt</h3><button class="btn sm p" onclick="pdfNotfall('${b.id}')">PDF zum Aushängen</button></div>
+  <div class="nfmelde">Meldeschema: Was? Wo? Wer? Wann?</div>
+  <div class="list">${NOTRUF.map(([t,nr])=>`<div class="item"><span class="pill r">${nr}</span><span><div class="ti">${t}</div></span></div>`).join('')}</div>
+  <div class="small mt"><b>Standort:</b> ${esc([n.strasse,[n.plz,b.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')||'–')}${k?'<br>'+esc(nfKoordText(k)):''}<br>
+  <b>Zufahrt Ambulanz:</b> ${esc(n.zufahrt||'–')} · <b>Sammelplatz:</b> ${esc(n.sammel||'–')}<br>
+  <b>Arzt:</b> ${esc([n.arztName,n.arztAdr,n.arztTel].filter(Boolean).join(', ')||'–')}<br><b>Spital:</b> ${esc([n.spitalName,n.spitalAdr,n.spitalTel].filter(Boolean).join(', ')||'–')}<br>
+  <b>Nothelfer:</b> ${esc(nh||'–')}</div>
+  ${n.kroki1?`<img src="${n.kroki1}" alt="Kroki Baustelle" style="width:100%;border-radius:8px;margin-top:8px">`:''}
+  ${nfFertig(b)?'':'<p class="small crit-c mt">Noch unvollständig: Koordinaten, Spital, Sammelplatz und ein Kroki gehören dazu. Der Bauführer ergänzt es unter Baustellen.</p>'}</div>`;}
+
+/* PDF: Seite 1 Notfall-Liste + Kroki Baustelle, Seite 2 Kroki Umgebung (falls vorhanden) */
+async function pdfNotfall(bid){const b=DB.baustellen.find(x=>x.id===bid);if(!b)return;const n=nfDaten(b);const k=nfKoord(n.koord);const c=DB.cfg||{};
+  const d=PDFDoc.doc({mt:36,mb:40,kopf:c.firma||''});
+  const kopfTab=()=>{d.text('Notfallblatt und Kroki',{size:18,bold:true,nach:4});
+    d.kv([['Auftragsnr.',b.nr||'–'],['Suchkriterium',n.such||'–'],['Objekt',b.name||'–'],['Strasse',n.strasse||'–'],['PLZ',n.plz||'–'],['Ort',b.ort||'–'],['Bauführer',b.bauleiter||'–'],['Koordinaten',k?`${tsd(k.e)} / ${tsd(k.n)}`:(n.koord||'–')]],2);d.linie(1.2,.15);};
+  const qrAn=(text,x,yy,seite)=>{try{const m=QR.encode(text);const nn=m.length,q=3,mod=seite/(nn+2*q);d.rechteck(x,yy,seite,seite,1);
+      for(let r=0;r<nn;r++)for(let cc=0;cc<nn;cc++)if(m[r][cc])d.rechteck(x+(cc+q)*mod,yy+(nn-1-r+q)*mod,mod+.15,mod+.15,0);}catch(e){}};
+  const krokiAn=(url,w0,h0,titel,qr,qrText)=>{d.titel(titel,{vor:6});const maxH=d.y-40-6;let w=d.breite,h=w*(h0||3)/(w0||4);
+    if(h>maxH){h=maxH;w=h*(w0||4)/(h0||3);}const x=d.links+(d.breite-w)/2;const yy=d.y-h;d.bildAn(url,x,yy,w,h);d.kasten(x,yy,w,h,undefined,'0.3 0.3 0.3',.6);
+    if(qr){const s=64;d.rechteck(x+w-s-10,yy+6,s+4,s+16,1);qrAn(qr,x+w-s-8,yy+18,s);d.textAn(qrText,x+w-s-6,yy+9,6.5,false,'0.3 0.3 0.3');}
+    d.y=yy-6;};
+  kopfTab();
+  d.abstand(4);const yM=d.y;const hM=40;d.kasten(d.links,yM-hM,d.breite,hM,'0.88 0.40 0.13');
+  const t1='Meldeschema: Was? Wo? Wer? Wann?';d.textAn(t1,d.links+(d.breite-d.breiteVon(t1,17,true))/2,yM-26,17,true,'1 1 1');d.y=yM-hM-8;
+  d.text('Wichtige Telefonnummern und Adressen',{size:11,bold:true,nach:3});
+  const zeilen=NOTRUF.map(([t,nr])=>[t,nr]);
+  zeilen.push(['Standort / Zufahrt',[[n.strasse,[n.plz,b.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '),n.zufahrt?'Zufahrt: '+n.zufahrt:'',k?'Koord. '+tsd(k.e)+' / '+tsd(k.n):''].filter(Boolean).join('\n')||'–']);
+  zeilen.push(['Sammelplatz',n.sammel||'–']);
+  zeilen.push(['Ärzte vor Ort',[n.arztName,n.arztAdr,n.arztTel].filter(Boolean).join(', ')||'–']);
+  zeilen.push(['Nächstes Spital',[n.spitalName,n.spitalAdr,n.spitalTel].filter(Boolean).join(', ')||'–']);
+  zeilen.push(['Nothelfer Baustelle',nfNothelfer(b)||'–']);
+  zeilen.push(['Einbruch / Diebstahl',n.einbruch||'Kantonspolizei (Notruf 117)']);
+  d.tabelle(['Wer','Nummer / Angaben'],zeilen,[1.4,3.2],{size:9.5});
+  d.hinweis(n.medien||NF_MEDIEN);
+  if(n.kroki1)krokiAn(n.kroki1,n.kroki1w,n.kroki1h,'Kroki Baustelle',nfKarte(k),'Standort');
+  if(n.kroki2){d.neueSeite();kopfTab();krokiAn(n.kroki2,n.kroki2w,n.kroki2h,'Kroki Umgebung'+(n.arztName||n.spitalName?' · '+[n.arztName,n.spitalName].filter(Boolean).join(' · '):''),nfRoute(k,n.spitalAdr||n.spitalName),'Route Spital');}
+  if(!n.kroki1&&!n.kroki2){d.abstand(6);d.text('Kein Kroki hinterlegt.',{size:9,farbe:'0.6 0.1 0.1'});}
+  d.fuss('Notfallblatt · '+b.name+' · Stand '+fmtD(today())+' · gut sichtbar beim Baustellenbüro, im Container und in den Fahrzeugen aushängen.');
+  await pdfSpeichern('Notfallblatt_'+(b.nr||b.name).replace(/[^\wäöüÄÖÜ-]+/g,'_')+'.pdf',d);}
 
 /* Meine Baustelle (Polier): alles, was vorbereitet wurde, nur lesen. */
 function bereitschaft(b){const pers=DB.personen.filter(p=>p.baustelle===b.id),masch=DB.maschinen.filter(m=>m.baustelle===b.id);
@@ -5997,6 +6218,7 @@ function bereitschaft(b){const pers=DB.personen.filter(p=>p.baustelle===b.id),ma
     ['Bauleiter eingetragen',!!b.bauleiter,b.bauleiter||'fehlt'],
     ['Personen zugeteilt',pers.length>0,pers.length+' Personen'],
     ['Maschinen zugeteilt',masch.length>0,masch.length+' Maschinen / Geräte'],
+    ['Notfallblatt mit Kroki',nfFertig(b),nfFertig(b)?'vollständig':'Koordinaten, Spital, Sammelplatz oder Kroki fehlen'],
     ['SiGe-Konzept hinterlegt',!!(b.sige||{}).datum,(b.sige||{}).datum?'Stand '+fmtD(b.sige.datum):'fehlt'],
     ['Alle instruiert (10 Regeln, < 1 Jahr)',pers.length>0&&ohneInstr.length===0,ohneInstr.length?ohneInstr.length+' ohne gültige Instruktion':'ok']];}
 function bereitKurz(b){const r=bereitschaft(b);const f=r.filter(x=>!x[1]).length;return f?`<span class="pill o">${f} offen für Polier</span>`:'<span class="pill g">bereit für Polier</span>';}
@@ -6013,6 +6235,7 @@ S.meinebs=()=>{
    <div class="card"><h3>Maschinen und Geräte (${masch.length})</h3>${masch.length?`<div class="list">${masch.map(m=>`<div class="item"><span class="pill n">${esc(m.inv||'')}</span><span><div class="ti">${esc(m.name)}</div><div class="su">${esc(m.typ||'')}</div></span></div>`).join('')}</div>`:'<p class="small muted">Noch keine Maschinen zugeteilt.</p>'}
    ${subs.length?`<h3 class="mt">Subunternehmer (${subs.length})</h3><div class="small">${subs.map(x=>esc(x.firma||x.name||'')).join(' · ')}</div>`:''}</div>
    <div class="card"><h3>SiGe-Konzept</h3>${s.datum?`<p class="small">Stand ${fmtD(s.datum)}${s.von?' · '+esc(s.von):''}${s.instruiert?' · instruiert am '+fmtD(s.instruiert):''}</p>${s.link?`<p class="small muted">Ablage: ${esc(s.link)}</p>`:''}${s.foto?`<img src="${s.foto}" alt="SiGe-Konzept" style="max-width:100%;border-radius:8px">`:''}`:'<p class="small crit-c">Noch nicht hinterlegt.</p>'}</div>
+   ${notfallKarte(b)}
    <div class="card"><h3>Vorbereitung</h3><div class="list">${bereitschaft(b).map(([t,ok,info])=>`<div class="item"><span class="pill ${ok?'g':'o'}">${ok?'✓':'offen'}</span><span><div class="ti">${t}</div><div class="su">${esc(info)}</div></span></div>`).join('')}</div></div>
   </div>
   <div class="row mt"><button class="btn p" onclick="go('neu',{art:'Wochencheck',bs:'${b.id}'})">Wochencheck starten</button><button class="btn" onclick="go('neu',{art:'Tagescheck',bs:'${b.id}'})">Abfahrtskontrolle Maschinen</button></div>`;};
@@ -6478,7 +6701,7 @@ function saveM(id){const o={};['name','inv','typ','hersteller','baustelle','betr
 
 S.baustellen=()=>`<div class="head"><div><h1>Baustellen</h1><p>Mit SiGe-Konzept (Art. 4 BauAV), Subunternehmern und Suva-Meldungen</p></div><button class="btn p" onclick="editB('')">＋ Neu</button></div>
   <div class="list">${DB.baustellen.map(b=>{const n=DB.kontrollen.filter(k=>k.baustelle===b.id).length;const o=DB.massnahmen.filter(m=>m.baustelle===b.id&&m.status!=='Erledigt').length;const sige=(b.sige||{}).datum;return `<button class="item" onclick="editB('${b.id}')"><span class="pill ${b.status==='Aktiv'?'g':'n'}">${esc(b.status)}</span><span><div class="ti">${esc(b.name)} · ${esc(b.nr)}</div><div class="su">${esc(b.ort)} · Bauleiter ${esc(b.bauleiter||'–')} · Polier ${esc(b.polier||'–')} · ${n} Kontrollen · ${o} offene Massnahmen · ${sige?'SiGe-Konzept '+fmtD(sige):'<b class="crit-c">SiGe-Konzept fehlt</b>'} · ${DB.subs.filter(s=>s.baustelle===b.id).length} Subunternehmer · ${bereitKurz(b)}</div></span><span class="ch">›</span></button>`;}).join('')}</div>
-  ${route.edit!==undefined?formB(route.edit):''}`;
+  ${route.edit!==undefined?formB(route.edit):''}${route.edit?formNotfall(route.edit):''}`;
 function editB(id){route.edit=id;render();setTimeout(()=>{const e=document.getElementById('fb');if(e)e.scrollIntoView({behavior:'smooth'});},50);}
 function formB(id){const b=DB.baustellen.find(x=>x.id===id)||{name:'',nr:'',ort:'',bauleiter:'',polier:'',status:'Aktiv',start:'',ende:'',bem:'',sige:{},charta:'Ja',meldung:'',meldungArt:''};const s=b.sige||{};const f=(k,l,t='text')=>`<label class="f"><span>${l}</span><input id="b_${k}" type="${t}" value="${esc(b[k]||'')}"></label>`;
   const subs=DB.subs.filter(x=>x.baustelle===id);
