@@ -264,7 +264,7 @@ details.bereich[open] summary::before{content:'▾ '}
 </head>
 <body>
 <div class="app">
-  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand sademo-v8</div></aside>
+  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand sademo-v9</div></aside>
   <div><div class="topbar" id="topnav"></div><main class="main" id="main"></main></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -5800,7 +5800,7 @@ function syncMassnahme(p){
 }
 function ueberfaellig(m){return m.status!=='Erledigt'&&m.termin&&m.termin<today();}
 function letzteKontrolle(bsid,art){const ks=DB.kontrollen.filter(k=>k.baustelle===bsid&&k.art===art&&k.abgeschlossen).sort((a,b)=>b.datum.localeCompare(a.datum));return ks[0]?ks[0].datum.slice(0,10):'';}
-function kontrollenFaellig(){const out=[];DB.baustellen.filter(b=>b.status==='Aktiv').forEach(b=>{Object.entries(RHYTHMUS).forEach(([art,tage])=>{const l=letzteKontrolle(b.id,art);const due=l?daysBetween(l,today())>=tage:true;if(due)out.push({b,art,letzte:l,tage:l?daysBetween(l,today()):null});});});return out;}
+function kontrollenFaellig(){const out=[];DB.baustellen.filter(b=>b.status==='Aktiv').forEach(b=>{if(!geStand(b.id).fertig)out.push({b,art:'Gefahrenermittlung',letzte:'',tage:null});Object.entries(RHYTHMUS).forEach(([art,tage])=>{const l=letzteKontrolle(b.id,art);const due=l?daysBetween(l,today())>=tage:true;if(due)out.push({b,art,letzte:l,tage:l?daysBetween(l,today()):null});});});return out;}
 function regelGruppen(ps){const gs=[...new Set(ps.map(p=>p.regel))].sort((a,b)=>(a===0?99:a)-(b===0?99:b));return gs.map(r=>({key:r,kurz:r||'+',titel:(r?`Regel ${r} – `:'')+REG[String(r)],punkte:ps.filter(p=>p.regel===r)}));}
 function objGruppen(ps){return [...new Set(ps.map(p=>p.objektgruppe))].map(g=>({key:g,titel:g,punkte:ps.filter(p=>p.objektgruppe===g)}));}
 function gruppen(k,ps){
@@ -6429,6 +6429,86 @@ async function pdfInstruktion(id){
   d.fuss('Mit der Unterschrift bestätigen die Teilnehmenden, dass sie die Instruktion verstanden haben und die Regeln anwenden. Grundlage: VUV Art. 6, EKAS 6508, Suva – 10 lebenswichtige Regeln.'+(r.art==='Kurzschulung'?'':' Wiederholung alle '+cfg('instrIntervall',12)+' Monate.'));
   await pdfSpeichern((r.nr||'Instruktion')+'.pdf',d);}
 
+
+/* ===== Gefahrenermittlung vor Baubeginn (ASA-Element 5) ===== */
+(function(){
+  const G=[
+   ['Untergrund und Leitungen','Werkleitungen','AU-03','Sind die Pläne aller Werke eingeholt, die Leitungen im Baubereich bekannt, Sondagen festgelegt und Schutzmassnahmen bestimmt?'],
+   ['Untergrund und Leitungen','Freileitungen','AU-68','Gibt es Freileitungen im Arbeits-, Kran- oder Schwenkbereich, und ist mit dem Werk der Abstand oder die Abschaltung geregelt?'],
+   ['Untergrund und Leitungen','Baugrund und Wasser','AU-24','Sind Baugrund, Grund- und Hangwasser beurteilt und ist daraus Böschung oder Verbau festgelegt?'],
+   ['Untergrund und Leitungen','Gräben und Baugruben','RG-25','Sind für alle Gräben und Baugruben ab 1.50 m Tiefe Böschung oder Verbau geplant und das Material bestellt?'],
+   ['Verkehr und Umgebung','Öffentlicher Verkehr','RG-06','Ist der Signalisationsplan bewilligt und die Verkehrsführung mit Polizei und Gemeinde abgesprochen?'],
+   ['Verkehr und Umgebung','Fussgänger, Velos, Schulweg','AU-125','Ist eine sichere Führung für Fussgänger, Velos, Kinder und Gehbehinderte geplant (Schulweg, Haltestellen, Zugänge zu Häusern)?'],
+   ['Verkehr und Umgebung','Zufahrt und Installationsplatz','AU-08','Sind Zufahrt, Installationsplatz, Lagerflächen und getrennte Fuss- und Fahrwege festgelegt?'],
+   ['Verkehr und Umgebung','Rettungszufahrt und Notfall','AU-131','Sind Standort, Rettungszufahrt, Sammelplatz, Arzt und Spital festgelegt und im Notfallblatt mit Kroki erfasst?'],
+   ['Verkehr und Umgebung','Nachbarschaft','RG-01','Sind Nachbargebäude, Mauern und Bäume beurteilt (Setzungen, Erschütterungen, Rissprotokoll) und die Anwohner informiert?'],
+   ['Verkehr und Umgebung','Bahnanlagen','AU-128','Liegt die Baustelle im Gefahrenbereich einer Bahnanlage, und sind die Vorgaben und Bewilligungen der Bahn eingeholt?'],
+   ['Verkehr und Umgebung','Gewässer','AU-117','Wird an oder über einem Gewässer gearbeitet, und sind Gewässerschutz, Absturz ins Wasser und Hochwasser geregelt?'],
+   ['Besondere Gefahren','Schadstoffe und Altlasten','AU-132','Ist abgeklärt, ob Aushub oder Bauteile belastet sind (Altlastenkataster, Asbest bei Rückbau), und ist die Entsorgung geregelt?'],
+   ['Besondere Gefahren','Schächte und enge Räume','RG-28','Gibt es Arbeiten in Schächten, Kanälen oder engen Räumen, und sind Messung, Lüftung, Sicherungsposten und Rettung geplant?'],
+   ['Besondere Gefahren','Kran und Hebearbeiten','AU-54','Sind Kranstandort, Schwenkbereich, Untergrund und Abstand zu Nachbarkranen und Leitungen festgelegt?'],
+   ['Besondere Gefahren','Absturzstellen','RG-18','Sind Absturzstellen ab 2 m (Böschungskanten, Bauwerke, Schächte) erfasst und Seitenschutz eingeplant?'],
+   ['Gesundheit und Organisation','Gesundheitsschutz','SA-17','Sind Staub (Quarz), Lärm, Vibration, Hitze und UV sowie schwere Lasten beurteilt und Massnahmen geplant (Wasser, Absaugung, Gehörschutz, Hebehilfen)?'],
+   ['Gesundheit und Organisation','Sanitär und Unterkunft','AU-104','Sind Toilette, Waschgelegenheit und Aufenthaltsraum für die Baustelle organisiert?'],
+   ['Gesundheit und Organisation','Subunternehmer und Schnittstellen','RG-04','Sind die Subunternehmer, ihre Gefahren und die Schnittstellen bekannt und ist die Koordination geregelt?']];
+  G.forEach(([gr,obj,src,frage],i)=>{const id='GE-'+String(i+1).padStart(2,'0');if(STAMM.pruefpunkte.some(p=>p.ID===id))return;
+    const v=STAMM.pruefpunkte.find(p=>p.ID===src)||{};
+    STAMM.pruefpunkte.push(Object.assign({},v,{ID:id,Typ:'Gefahrenermittlung',Objektgruppe:gr,Objekt:obj,Prueffrage:frage,KurzSoll:'Gefahr vor Baubeginn beurteilt, Massnahme festgelegt.',Arbeitsstopp:'Nein',Sort:i+1,Quelle:'Gefahrenermittlung vor Baubeginn · Bezug '+src}));
+    PUNKT_THEMA[id]=PUNKT_THEMA[src]||'orga';});
+  PUNKT_THEMA['GE-09']='orga';
+})();
+ARTEN.Gefahrenermittlung='Gefahrenermittlung vor Baubeginn';ARTK.Gefahrenermittlung='Gefahrenermittlung';
+function statusKnoepfe(k){return k&&k.art==='Gefahrenermittlung'
+  ?[['OK','geklärt','ok'],['Mangel','Massnahme nötig','mangel'],['Nicht geprüft','noch offen','np'],['Nicht relevant','betrifft nicht','nr']]
+  :[['OK','OK','ok'],['Vorbildlich','★ vorbildlich','vb'],['Mangel','Mangel','mangel'],['Nicht geprüft','noch offen','np'],['Nicht relevant','nicht relevant','nr']];}
+function geStand(bid){const ks=DB.kontrollen.filter(k=>k.baustelle===bid&&k.art==='Gefahrenermittlung').sort((a,b)=>b.datum.localeCompare(a.datum));
+  const fertig=ks.find(k=>k.abgeschlossen);const offen=ks.find(k=>!k.abgeschlossen);return {fertig,offen};}
+function geKarte(b){const st=geStand(b.id);const k=st.fertig;const ps=k?DB.punkte.filter(p=>p.kontrolle===k.id):[];
+  const mg=ps.filter(p=>p.status==='Mangel').length;
+  return `<div class="card mt" id="fge"><div class="row sp"><h3>Gefahrenermittlung vor Baubeginn</h3><span class="pill ${k?'g':st.offen?'o':'r'}">${k?'abgeschlossen '+fmtD(k.datum.slice(0,10)):st.offen?'angefangen':'fehlt'}</span></div>
+  <p class="small muted">Einmal pro Baustelle vor dem Start, durch den Bauführer: ${STAMM.pruefpunkte.filter(p=>p.Typ==='Gefahrenermittlung').length} Gefahrenbereiche von Werkleitungen bis Gesundheitsschutz. Was eine Massnahme braucht, landet mit Zuständigem und Termin in den Massnahmen. Grundlage: ASA-Element 5 (EKAS 6508), SiGe-Konzept nach BauAV Art. 4.</p>
+  ${k?`<p class="small">${mg} Massnahmen festgelegt · ${ps.filter(p=>p.status==='Nicht relevant').length} Bereiche betreffen diese Baustelle nicht.</p>`:''}
+  <div class="row mt">${st.offen?`<button class="btn p" onclick="go('pruefen',{id:'${st.offen.id}'})">Weiterführen</button>`:`<button class="btn ${k?'':'p'}" onclick="geStarten('${b.id}')">${k?'Neu beurteilen (Projektänderung)':'Gefahrenermittlung starten'}</button>`}${k?`<button class="btn p" onclick="go('bericht',{id:'${k.id}'})">Bericht / PDF</button>`:''}</div></div>`;}
+function geStarten(bid){route={s:'neu',art:'Gefahrenermittlung',bs:bid};render();
+  setTimeout(()=>{const pr=document.getElementById('f_pr');if(pr&&!pr.value)pr.value=bs(bid).bauleiter||'';},30);}
+
+/* ===== ASA-Übersicht: 10 Elemente der EKAS-Richtlinie 6508 mit Stand aus dem Programm ===== */
+function asaStand(){const akt=DB.baustellen.filter(b=>b.status==='Aktiv');const nA=akt.length;const heute=today();
+  const tageSeit=d=>d?daysBetween(d.slice(0,10),heute):9999;
+  const sys=DB.kontrollen.filter(k=>k.art==='Systemaudit'&&k.abgeschlossen).sort((a,b)=>b.datum.localeCompare(a.datum))[0];
+  const sysTage=sys?tageSeit(sys.datum):9999;
+  const sysPunkt=id=>{if(!sys)return null;const p=DB.punkte.find(x=>x.kontrolle===sys.id&&x.vorlage===id);return p?p.status:null;};
+  const pers=DB.personen;const instrOk=pers.filter(p=>p.instr10&&daysBetween(p.instr10,heute)<=365).length;
+  const ea=(DB.instruktionen||[]).filter(r=>r.art==='Erstanweisung').length;const ks90=(DB.instruktionen||[]).filter(r=>r.art==='Kurzschulung'&&tageSeit(r.datum)<=90).length;
+  const geOk=akt.filter(b=>geStand(b.id).fertig).length;const nfOk=akt.filter(b=>nfFertig(b)).length;
+  const ms=DB.massnahmen;const offen=ms.filter(m=>m.status!=='Erledigt').length;const ueb=ms.filter(ueberfaellig).length;const wk=ms.filter(m=>m.nkStatus==='Offen').length;
+  const ereig=DB.kontrollen.filter(k=>k.art==='Ereignis'&&tageSeit(k.datum)<=365).length;const meld=(DB.meldungen||[]).filter(m=>tageSeit(m.datum||m.eingang||m.erstellt)<=365).length;
+  const gespr=DB.kontrollen.filter(k=>k.gespraech==='Ja'&&tageSeit(k.datum)<=90).length;
+  const gesThemen=['laerm','hitze','ergo','haut','hygiene','fit'];const gesOffen=DB.punkte.filter(p=>p.status==='Mangel'&&gesThemen.includes(PUNKT_THEMA[p.vorlage])).map(p=>DB.massnahmen.find(m=>m.punkt===p.id)).filter(m=>m&&m.status!=='Erledigt').length;
+  const gesGe=akt.filter(b=>{const k=geStand(b.id).fertig;if(!k)return false;const p=DB.punkte.find(x=>x.kontrolle===k.id&&x.vorlage==='GE-16');return p&&p.status!=='Nicht geprüft';}).length;
+  const faellig=kontrollenFaellig().length;const c=DB.cfg||{};
+  const anteil=(a,n)=>n?(a>=n?'Grün':a>0?'Orange':'Rot'):'Grau';
+  return [
+   {nr:1,el:'Sicherheitsleitbild, Sicherheitsziele',wo:'Systemaudit (SA-01, SA-02)',stand:sys?`Systemaudit vom ${fmtD(sys.datum.slice(0,10))}; Leitbild: ${sysPunkt('SA-01')||'–'}`:'Noch kein Systemaudit abgeschlossen',ampel:sys&&sysTage<=365?'Grün':sys?'Orange':'Rot'},
+   {nr:2,el:'Sicherheitsorganisation',wo:'Rollen, SiBe-Kontakt, Bauleiter und Polier je Baustelle, Zuständige je Massnahme',stand:`SiBe: ${c.sibeName||'nicht hinterlegt'} · Baustellen mit Bauleiter und Polier: ${akt.filter(b=>b.bauleiter&&b.polier).length}/${nA}`,ampel:c.sibeName?anteil(akt.filter(b=>b.bauleiter&&b.polier).length,nA):'Orange'},
+   {nr:3,el:'Ausbildung, Instruktion, Information',wo:'Instruktionen, Erstanweisung, 10-Minuten-Schulung, Ausweise',stand:`10 Regeln gültig instruiert: ${instrOk}/${pers.length} · Erstanweisungen: ${ea} · Kurzschulungen 90 Tage: ${ks90}`,ampel:anteil(instrOk,pers.length)},
+   {nr:4,el:'Sicherheitsregeln',wo:'10 lebenswichtige Regeln, STOPP-Prinzip, Regeln & Gespräch',stand:`10 Regeln im Programm hinterlegt${sysPunkt('SA-07')?' · Systemaudit SA-07: '+sysPunkt('SA-07'):''}`,ampel:'Grün'},
+   {nr:5,el:'Gefahrenermittlung, Risikobeurteilung',wo:'Gefahrenermittlung vor Baubeginn, Kontrollen, QR-Meldungen, Ereignisse',stand:`Gefahrenermittlung: ${geOk}/${nA} Baustellen · Meldungen 12 Monate: ${meld} · Ereignisse 12 Monate: ${ereig}`,ampel:anteil(geOk,nA)},
+   {nr:6,el:'Massnahmenplanung und -realisierung',wo:'Massnahmen mit Frist, STOP-Prinzip, Wirksamkeitskontrolle',stand:`${offen} offen · ${ueb} überfällig · ${wk} Wirksamkeitskontrollen offen`,ampel:ueb?'Rot':wk?'Orange':'Grün'},
+   {nr:7,el:'Notfallorganisation',wo:'Notfallblatt mit Kroki je Baustelle, Nothelfer',stand:`Notfallblatt vollständig: ${nfOk}/${nA} Baustellen`,ampel:anteil(nfOk,nA)},
+   {nr:8,el:'Mitwirkung',wo:'QR-Meldungen, Sicherheitsgespräch, Unterschriften der Mitarbeitenden',stand:`Meldungen 12 Monate: ${meld} · Sicherheitsgespräche 90 Tage: ${gespr}`,ampel:meld||gespr?'Grün':'Orange'},
+   {nr:9,el:'Gesundheitsschutz',wo:'Gesundheitsthemen in den Kontrollen, Gefahrenermittlung GE-16, Systemaudit SA-17/18',stand:`Gesundheitsschutz beurteilt: ${gesGe}/${nA} Baustellen · offene Gesundheits-Massnahmen: ${gesOffen}`,ampel:gesOffen?'Orange':anteil(gesGe,nA)},
+   {nr:10,el:'Kontrolle, Audit',wo:'Kontrollrhythmus (Wochencheck, Rundgang, Audit), Systemaudit jährlich',stand:`${faellig} Kontrollen fällig · Systemaudit ${sys?'vor '+sysTage+' Tagen':'fehlt'}`,ampel:faellig||!sys||sysTage>365?(sys?'Orange':'Rot'):'Grün'}];}
+function asaKarte(){const a=asaStand();const farbe={Grün:'g',Orange:'o',Rot:'r',Grau:'n'};
+  return `<div class="card mb"><div class="row sp"><div><h3>ASA-System: 10 Elemente (EKAS-Richtlinie 6508)</h3><p class="small muted">Wo jedes Element im Programm abgedeckt ist und wie der Stand heute ist.</p></div><button class="btn sm p" onclick="pdfAsa()">PDF</button></div>
+  <div class="tw"><table class="tb"><thead><tr><th>#</th><th>Element</th><th>Im Programm</th><th>Stand heute</th></tr></thead><tbody>
+  ${a.map(x=>`<tr><td><span class="pill ${farbe[x.ampel]}">${x.nr}</span></td><td><b>${esc(x.el)}</b></td><td class="small">${esc(x.wo)}</td><td class="small">${esc(x.stand)}</td></tr>`).join('')}</tbody></table></div></div>`;}
+async function pdfAsa(){const a=asaStand();const d=PDFDoc.doc({kopf:(DB.cfg&&DB.cfg.firma)||'Sicherheitsaudit Grossbaustelle Tiefbau'});
+  pdfKopf(d,'ASA-System: 10 Elemente nach EKAS-Richtlinie 6508','Zuordnung zum Sicherheitsaudit und Stand vom '+fmtD(today()));
+  d.tabelle(['#','Element','Im Programm','Stand','Ampel'],a.map(x=>[String(x.nr),x.el,x.wo,x.stand,x.ampel]),[.4,2,3,3.4,.9],{size:8.2});
+  d.fuss('Ampel: Grün erfüllt · Orange teilweise · Rot fehlt. Grundlage: EKAS-Richtlinie 6508 (Beizug von Arbeitsärzten und anderen Spezialisten der Arbeitssicherheit), VUV.');
+  await pdfSpeichern('ASA_Uebersicht_'+today()+'.pdf',d);}
+
 /* Meine Baustelle (Polier): alles, was vorbereitet wurde, nur lesen. */
 function bereitschaft(b){const pers=DB.personen.filter(p=>p.baustelle===b.id),masch=DB.maschinen.filter(m=>m.baustelle===b.id);
   const ohneInstr=pers.filter(p=>!p.instr10||daysBetween(p.instr10,today())>365);
@@ -6437,6 +6517,7 @@ function bereitschaft(b){const pers=DB.personen.filter(p=>p.baustelle===b.id),ma
     ['Bauleiter eingetragen',!!b.bauleiter,b.bauleiter||'fehlt'],
     ['Personen zugeteilt',pers.length>0,pers.length+' Personen'],
     ['Maschinen zugeteilt',masch.length>0,masch.length+' Maschinen / Geräte'],
+    ['Gefahrenermittlung vor Baubeginn',!!geStand(b.id).fertig,geStand(b.id).fertig?'abgeschlossen':'fehlt (Bauführer)'],
     ['Notfallblatt mit Kroki',nfFertig(b),nfFertig(b)?'vollständig':'Koordinaten, Spital, Sammelplatz oder Kroki fehlen'],
     ['SiGe-Konzept hinterlegt',!!(b.sige||{}).datum,(b.sige||{}).datum?'Stand '+fmtD(b.sige.datum):'fehlt'],
     ['Alle instruiert (10 Regeln, < 1 Jahr)',pers.length>0&&ohneInstr.length===0,ohneInstr.length?ohneInstr.length+' ohne gültige Instruktion':'ok']];}
@@ -6477,7 +6558,7 @@ function paketFuerPolier(bid){const b=DB.baustellen.find(x=>x.id===bid);if(!b)re
 S.start=()=>{
   const mb=meineBaustelle();
   const ms=mb?DB.massnahmen.filter(m=>m.baustelle===mb):DB.massnahmen;const krit=ms.filter(m=>m.status!=='Erledigt'&&m.prio==='Kritisch').length;const stop=ms.filter(m=>m.arbeitsstopp==='Ja'&&!m.wiederaufnahmeAm).length;
-  const ueb=ms.filter(ueberfaellig).length;const nk=ms.filter(m=>m.nkStatus==='Offen').length;const ARTEN_ROLLE={'Polier':['Wochencheck','Tagescheck','Geraetepruefung'],'Bauführer':['Wochencheck','Tagescheck','Geraetepruefung','Rundgang']};const artOk=a=>!ARTEN_ROLLE[rolle()]||ARTEN_ROLLE[rolle()].includes(a);
+  const ueb=ms.filter(ueberfaellig).length;const nk=ms.filter(m=>m.nkStatus==='Offen').length;const ARTEN_ROLLE={'Polier':['Wochencheck','Tagescheck','Geraetepruefung'],'Bauführer':['Wochencheck','Tagescheck','Geraetepruefung','Rundgang','Gefahrenermittlung']};const artOk=a=>!ARTEN_ROLLE[rolle()]||ARTEN_ROLLE[rolle()].includes(a);
   const offen=DB.kontrollen.filter(k=>!k.abgeschlossen&&(!mb||k.baustelle===mb)&&artOk(k.art));const faellig=kontrollenFaellig().filter(f=>(!mb||f.b.id===mb)&&artOk(f.art));
   const n=t=>STAMM.pruefpunkte.filter(p=>p.Typ===t).length;const leer=DB.baustellen.length===0;
   const tab=route.tab||'heute';
@@ -6487,7 +6568,7 @@ S.start=()=>{
   const kopf=`<div class="head"><div><div class="eyebrow">Grossbaustelle Tiefbau</div><h1>Sicherheitsaudit</h1><p>${fmtD(today())} · ${DB.baustellen.filter(b=>b.status==='Aktiv').length===1?'1 aktive Baustelle':DB.baustellen.filter(b=>b.status==='Aktiv').length+' aktive Baustellen'} · STOPP bei Gefahr – Gefahr beheben – weiterarbeiten</p></div></div>
   <div class="row sp mb"><div class="seg">${[['heute','Heute'],['auswertung','Auswertung']].map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="route.tab='${k}';render()">${l}</button>`).join('')}</div>
   ${bsWahl.length?`<label class="f" style="margin:0"><span class="small muted">Ich arbeite auf</span><select onchange="setMeineBaustelle(this.value)"><option value="">alle Baustellen</option>${bsWahl.map(b=>`<option value="${b.id}" ${mb===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}</div>`;
-  if(tab==='auswertung')return kopf+dashBody();
+  if(tab==='auswertung')return kopf+asaKarte()+dashBody();
   return kopf+
   `${leer?`<div class="card mb" style="border-left:4px solid var(--accent)"><h3>Erste Schritte – das Programm ist noch leer</h3>
   <p class="small muted">Wer arbeitet mit diesem Gerät? Die Ansicht zeigt dann nur, was für diese Aufgabe nötig ist.</p>
@@ -6523,7 +6604,7 @@ S.start=()=>{
     ${kachel('Meldung',['Polier','Bauführer','SiBe / Bauleitung'],'',`go('meldungen')`,'Meldungen aus der Belegschaft',`QR-Aushang auf der Baustelle · ${mdNeu()} neu · ${(DB.meldungen||[]).length} total`)}
     ${kachel('Mass',['Polier'],'',`meinePunkte()`,'Meine offenen Punkte',`${ms.filter(m=>m.status!=='Erledigt'&&(!localStorage.getItem('sademo_user')||m.zustaendig===localStorage.getItem('sademo_user'))).length} für mich · ${ms.filter(m=>m.status!=='Erledigt').length} auf der Baustelle`)}
   </div>
-  ${faellig.length?`<div class="grp" id="faellig"><h3>Fällige Kontrollen (Kontrollrhythmus)</h3><div class="ln"></div></div><div class="list">${faellig.map(f=>`<button class="item" onclick="go('neu',{art:'${f.art}',bs:'${f.b.id}'})"><span class="pill ${f.letzte?'o':'r'}">${f.letzte?f.tage+' Tage':'noch nie'}</span><span><div class="ti">${esc(ARTEN[f.art])} · ${esc(f.b.name)}</div><div class="su">Rhythmus alle ${RHYTHMUS[f.art]} Tage · letzte: ${fmtD(f.letzte)}</div></span><span class="ch">›</span></button>`).join('')}</div>`:''}
+  ${faellig.length?`<div class="grp" id="faellig"><h3>Fällige Kontrollen (Kontrollrhythmus)</h3><div class="ln"></div></div><div class="list">${faellig.map(f=>`<button class="item" onclick="go('neu',{art:'${f.art}',bs:'${f.b.id}'})"><span class="pill ${f.letzte?'o':'r'}">${f.letzte?f.tage+' Tage':'noch nie'}</span><span><div class="ti">${esc(ARTEN[f.art])} · ${esc(f.b.name)}</div><div class="su">${RHYTHMUS[f.art]?'Rhythmus alle '+RHYTHMUS[f.art]+' Tage · letzte: '+fmtD(f.letzte):'einmal vor Baubeginn, durch den Bauführer'}</div></span><span class="ch">›</span></button>`).join('')}</div>`:''}
   ${offen.length?`<div class="grp"><h3>Nicht abgeschlossene Kontrollen</h3><div class="ln"></div></div><div class="list">${offen.map(itemK).join('')}</div>`:''}`;
 };
 function meinePunkte(){const n=localStorage.getItem('sademo_user')||'';
@@ -6712,7 +6793,7 @@ function ppCard(p,ro,k){
   const vorschlag=[bst.polier,bst.bauleiter].filter(Boolean);
   return `<div class="pp ${a}" id="pp_${p.id}">
     <div class="q">${esc(p.frage)}</div>
-    <div class="seg">${[['OK','OK','ok'],['Vorbildlich','★ vorbildlich','vb'],['Mangel','Mangel','mangel'],['Nicht geprüft','noch offen','np'],['Nicht relevant','nicht relevant','nr']].map(([s,l,c])=>`<button class="${p.status===s?'on '+c:''}" ${ro?'disabled':''} onclick="setP('${p.id}','status','${s}')">${l}</button>`).join('')}</div>
+    <div class="seg">${statusKnoepfe(k).map(([s,l,c])=>`<button class="${p.status===s?'on '+c:''}" ${ro?'disabled':''} onclick="setP('${p.id}','status','${s}')">${l}</button>`).join('')}</div>
     <button class="ppmehr" onclick="this.parentNode.classList.toggle('offen')">Was gilt hier? ${esc(p.objekt)}${wdh?' · '+wdh+'× früher bemängelt':''}</button>
     <div class="ppinfo"><div class="soll">Soll: ${esc(p.soll)}${p.recht?` <span class="muted">· ${esc(p.recht)}</span>`:''}</div>
       <div class="meta"><span class="pill n">${esc(p.objektgruppe)}</span>${p.regel?`<span class="pill b">Regel ${p.regel}</span>`:''}<span class="pill ${p.prioStd==='Kritisch'?'r':p.prioStd==='Hoch'?'o':'y'}">Std. ${esc(p.prioStd)}</span>${p.stoppVorschlag==='Ja'?'<span class="pill r">Arbeitsstopp-Vorschlag</span>':''}<span class="pill n">STOP: ${esc(p.stopArt)}</span>${wdh?`<span class="pill o">Wiederholung: ${wdh}× auf dieser Baustelle</span>`:''}</div></div>
@@ -6920,7 +7001,7 @@ function saveM(id){const o={};['name','inv','typ','hersteller','baustelle','betr
 
 S.baustellen=()=>`<div class="head"><div><h1>Baustellen</h1><p>Mit SiGe-Konzept (Art. 4 BauAV), Subunternehmern und Suva-Meldungen</p></div><button class="btn p" onclick="editB('')">＋ Neu</button></div>
   <div class="list">${DB.baustellen.map(b=>{const n=DB.kontrollen.filter(k=>k.baustelle===b.id).length;const o=DB.massnahmen.filter(m=>m.baustelle===b.id&&m.status!=='Erledigt').length;const sige=(b.sige||{}).datum;return `<button class="item" onclick="editB('${b.id}')"><span class="pill ${b.status==='Aktiv'?'g':'n'}">${esc(b.status)}</span><span><div class="ti">${esc(b.name)} · ${esc(b.nr)}</div><div class="su">${esc(b.ort)} · Bauleiter ${esc(b.bauleiter||'–')} · Polier ${esc(b.polier||'–')} · ${n} Kontrollen · ${o} offene Massnahmen · ${sige?'SiGe-Konzept '+fmtD(sige):'<b class="crit-c">SiGe-Konzept fehlt</b>'} · ${DB.subs.filter(s=>s.baustelle===b.id).length} Subunternehmer · ${bereitKurz(b)}</div></span><span class="ch">›</span></button>`;}).join('')}</div>
-  ${route.edit!==undefined?formB(route.edit):''}${route.edit?formNotfall(route.edit):''}`;
+  ${route.edit!==undefined?formB(route.edit):''}${route.edit?geKarte(DB.baustellen.find(x=>x.id===route.edit))+formNotfall(route.edit):''}`;
 function editB(id){route.edit=id;render();setTimeout(()=>{const e=document.getElementById('fb');if(e)e.scrollIntoView({behavior:'smooth'});},50);}
 function formB(id){const b=DB.baustellen.find(x=>x.id===id)||{name:'',nr:'',ort:'',bauleiter:'',polier:'',status:'Aktiv',start:'',ende:'',bem:'',sige:{},charta:'Ja',meldung:'',meldungArt:''};const s=b.sige||{};const f=(k,l,t='text')=>`<label class="f"><span>${l}</span><input id="b_${k}" type="${t}" value="${esc(b[k]||'')}"></label>`;
   const subs=DB.subs.filter(x=>x.baustelle===id);

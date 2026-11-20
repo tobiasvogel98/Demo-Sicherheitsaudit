@@ -46,6 +46,11 @@ Pilotdaten nach dem Update scheinbar weg.
 * **10-Minuten-Schulung** (Instruktionen): Thema aus den 40 Themen mit Leitfaden und Sollbild,
   danach unterschreiben alle nacheinander auf dem iPad, Abwesende werden vermerkt, PDF mit
   Unterschriften. Auch die bisherige Instruktion sammelt jetzt die Unterschriften auf dem iPad.
+* **Gefahrenermittlung vor Baubeginn** (ASA-Element 5): Baustellen → Baustelle öffnen. 18
+  Gefahrenbereiche, einmal pro Baustelle durch den Bauführer; erscheint als fällig, solange sie
+  fehlt, und zählt zur Bereitschaft für den Polier. Massnahmen landen in den Massnahmen.
+* **ASA-Übersicht** (Start → Auswertung): 10 Elemente der EKAS-Richtlinie 6508, wo sie im
+  Programm abgedeckt sind und der Stand heute mit Ampel, als PDF.
 * **Baustellen-Paket**: Bauführer → Baustellen → Baustelle öffnen → «Paket für Polier speichern».
   Polier → Daten / Geräte → «Daten zusammenführen». Das Gerät stellt sich auf Polier und
   diese Baustelle ein.
@@ -80,7 +85,7 @@ Auf Android: Chrome öffnen → Menü → **App installieren**.
 
 ## Neue Version veröffentlichen
 
-1. In `sw.js` die Zeile `const VERSION = 'sademo-v6';` um eins erhöhen
+1. In `sw.js` die Zeile `const VERSION = 'sademo-v9';` um eins erhöhen
    (sonst zeigen bereits installierte Geräte weiter die alte Fassung)
 2. Beide Dateien (`index.html`, `sw.js`) im Repository ersetzen:
    Datei anklicken → Stift → Inhalt ersetzen → Commit.
