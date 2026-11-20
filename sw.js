@@ -1,6 +1,6 @@
 /* Sicherheitsaudit Tiefbau - Offline-Zwischenspeicher.
    Beim Veroeffentlichen einer neuen Version die Zahl erhoehen. */
-const VERSION = 'sademo-v10';
+const VERSION = 'sademo-v11';
 const PREFIX = 'sademo-'; /* nur eigene Zwischenspeicher loeschen, nie die der Live-Fassung */
 const DATEIEN = ['./', './index.html', './manifest.json',
   './icon180.png', './icon192.png', './icon512.png', './icon512-maskable.png',

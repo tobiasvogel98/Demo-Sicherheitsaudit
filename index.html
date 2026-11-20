@@ -264,7 +264,7 @@ details.bereich[open] summary::before{content:'▾ '}
 </head>
 <body>
 <div class="app">
-  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand <span id="appstand">sademo-v10</span></div></aside>
+  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand <span id="appstand">sademo-v11</span></div></aside>
   <div><div class="topbar" id="topnav"></div><main class="main" id="main"></main></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -5718,7 +5718,7 @@ const PDFDoc=(function(){
 
 
 /* Sicherheitsaudit Tiefbau – iPad-Prototyp v2. Daten lokal im Gerät (localStorage). */
-const APPSTAND='sademo-v10';const KEY='sademo_audit_v2'; /* Demo: eigener Speicher, getrennt von der Live-Fassung auf derselben Domain */
+const APPSTAND='sademo-v11';const KEY='sademo_audit_v2'; /* Demo: eigener Speicher, getrennt von der Live-Fassung auf derselben Domain */
 const ARTEN={Tagescheck:'Tagescheck (Polier)',Rundgang:'Rundgang (Bauführer)','Audit Tiefbau':'Audit Tiefbau (SiBe)',Geraetepruefung:'Geräteprüfung',Ereignis:'Ereignis / Beinaheunfall',Meldung:'Meldung (QR / Mitarbeitende)',Systemaudit:'Systemaudit (ASA)'};
 const ARTK={Tagescheck:'Tagescheck',Rundgang:'Rundgang','Audit Tiefbau':'Audit',Geraetepruefung:'Geräteprüfung',Ereignis:'Ereignis',Meldung:'Meldung',Systemaudit:'Systemaudit'};
 const ROLLEN=['Polier','Bauführer','SiBe / Bauleitung'];
@@ -6160,7 +6160,7 @@ function formNotfall(id){const b=DB.baustellen.find(x=>x.id===id);if(!b)return '
    ${f('arztName','Arzt vor Ort (Name)','Dr. med. …')}${f('arztAdr','Arzt Adresse','Strasse, Ort')}${f('arztTel','Arzt Telefon','056 …')}
    ${f('spitalName','Nächstes Spital','Spital Muri')}${f('spitalAdr','Spital Adresse','Spitalstrasse 144, 5630 Muri')}${f('spitalTel','Spital Telefon','056 …')}
    ${f('nothelfer','Nothelfer auf der Baustelle',nfNothelfer(b)||'Namen',true)}${f('einbruch','Einbruch / Diebstahl','',true)}${f('medien','Hinweis Medien und Dritte','',true)}
-   ${bild(1,'Kroki Baustelle','Kartenausschnitt mit Baustelle, Zufahrt und Sammelplatz. Bild, PDF oder Word-Datei (.docx) wählen oder aus der App «Dateien» (auch OneDrive) hierher ziehen; danach Seite wählen und Ausschnitt mit dem Finger einrahmen.')}
+   ${bild(1,'Kroki Baustelle','Kartenausschnitt mit Baustelle, Zufahrt und Sammelplatz. Bild, PDF oder Word-Datei (.docx) wählen, danach Seite wählen und Ausschnitt mit dem Finger einrahmen. Liegt die Datei in einem geteilten OneDrive-Ordner, zuerst in der App «Dateien» nach «Auf meinem iPad» kopieren und von dort wählen.')}
    ${bild(2,'Kroki Umgebung','Grösserer Ausschnitt mit Baustelle, Arzt und Spital. Aus derselben Datei möglich, einfach einen anderen Ausschnitt einrahmen.')}
   </div><div class="row mt"><button class="btn p" onclick="saveNotfall('${id}')">Notfallblatt speichern</button><button class="btn" onclick="saveNotfall('${id}',true)">Speichern und PDF</button></div></div>`;}
 function nfKoordHint(v){const e=document.getElementById('nfKH');if(!e)return;const k=nfKoord(v);e.innerHTML=k?esc(nfKoordText(k)):(v?'<span class="crit-c">Koordinaten nicht erkannt</span>':'');}
