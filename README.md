@@ -14,6 +14,30 @@ auf dem Gerät, auf dem sie erfasst wurden (lokaler Gerätespeicher des Browsers
 | `icon*.png` | App-Symbol (Warnweste) in allen benötigten Grössen |
 | `.nojekyll` | sagt GitHub Pages, dass nichts umgebaut werden soll |
 
+## Demo-Fassung (Testkopie)
+
+Dieses Repository ist die **Entwicklungsfassung**. Die Pilotnutzer arbeiten mit `Sicherheitsaudit`.
+Beide liegen auf derselben Adresse `tobiasvogel98.github.io`, deshalb ist die Demo bewusst getrennt:
+
+* eigener Gerätespeicher (`sademo_audit_v2`, `sademo_user`), die Pilotdaten bleiben unberührt
+* eigener Offline-Zwischenspeicher (`sademo-…`), räumt nur die eigenen Fassungen auf
+* auf dem Home-Bildschirm heisst sie **SA Demo**
+
+Bei einer Übernahme in die Live-Fassung diese drei Punkte zurückstellen, sonst sind die
+Pilotdaten nach dem Update scheinbar weg.
+
+### Stand Phase 1 (20.11.2026)
+
+* **Wochencheck** für den Polier (24 Punkte, alle 7 Tage). Der Tagescheck bleibt als
+  Abfahrtskontrolle der Maschinen und gilt nicht mehr als täglich fällig.
+* **Begründung am Mangel**: Warum gefährlich, Bild des Sollzustands (antippen für Text),
+  häufigste Massnahmen zum Antippen.
+* **Baustellen-Paket**: Bauführer → Baustellen → Baustelle öffnen → «Paket für Polier speichern».
+  Polier → Daten / Geräte → «Daten zusammenführen». Das Gerät stellt sich auf Polier und
+  diese Baustelle ein.
+* **Meine Baustelle** für den Polier: Personen, Maschinen, SiGe-Konzept, Vorbereitungsstand,
+  nur lesen.
+
 ## Veröffentlichen (einmalig, ca. 5 Minuten)
 
 1. Auf **github.com** einloggen → oben rechts **+** → **New repository**
@@ -42,7 +66,7 @@ Auf Android: Chrome öffnen → Menü → **App installieren**.
 
 ## Neue Version veröffentlichen
 
-1. In `sw.js` die Zeile `const VERSION = 'sa-v1';` auf `'sa-v2'` erhöhen
+1. In `sw.js` die Zeile `const VERSION = 'sademo-v3';` um eins erhöhen
    (sonst zeigen bereits installierte Geräte weiter die alte Fassung)
 2. Beide Dateien (`index.html`, `sw.js`) im Repository ersetzen:
    Datei anklicken → Stift → Inhalt ersetzen → Commit.

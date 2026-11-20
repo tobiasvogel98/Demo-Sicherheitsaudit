@@ -243,6 +243,18 @@ details.bereich[open] summary::before{content:'▾ '}
 .undo button{background:#fff;color:var(--ink);border:0;border-radius:99px;padding:8px 16px;font-weight:600}
 .rollenfuss{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}
 .themen{background:var(--surface2);border-radius:8px;padding:10px 12px;font-family:var(--fb);font-size:14px;white-space:pre-wrap;margin:0}
+
+.warum{display:grid;grid-template-columns:1fr 240px;gap:12px;align-items:start;background:#FFF7EC;border:1px solid #F1C98F;border-radius:12px;padding:12px;margin:0 0 12px}
+.warum.stoppw{background:#FDECEA;border-color:#E9A39C}
+.warum .wtext p{margin:4px 0 6px;font-size:15px;line-height:1.4}
+.wbild{position:relative;padding:0;border:0;background:none;cursor:pointer;border-radius:10px;overflow:hidden;width:240px}
+.wbild svg{display:block;width:240px;height:160px}
+.wbild .wcap{position:absolute;inset:0;background:rgba(20,40,30,.9);color:#fff;font-size:13px;line-height:1.35;padding:12px;text-align:left;display:none}
+.wbild.zeigt .wcap{display:block}
+.wbild .wtip{position:absolute;left:6px;bottom:6px;background:rgba(255,255,255,.9);font-size:11px;padding:2px 6px;border-radius:6px;color:#333}
+.wbild.zeigt .wtip{display:none}
+.vorschl{margin:0 0 12px}.vorschl .row{gap:6px;margin-top:4px}
+@media (max-width:640px){.warum{grid-template-columns:1fr}.wbild,.wbild svg{width:100%;height:auto}}
 </style>
 </head>
 <body>
@@ -5787,7 +5799,7 @@ function kontrollenFaellig(){const out=[];DB.baustellen.filter(b=>b.status==='Ak
 function regelGruppen(ps){const gs=[...new Set(ps.map(p=>p.regel))].sort((a,b)=>(a===0?99:a)-(b===0?99:b));return gs.map(r=>({key:r,kurz:r||'+',titel:(r?`Regel ${r} – `:'')+REG[String(r)],punkte:ps.filter(p=>p.regel===r)}));}
 function objGruppen(ps){return [...new Set(ps.map(p=>p.objektgruppe))].map(g=>({key:g,titel:g,punkte:ps.filter(p=>p.objektgruppe===g)}));}
 function gruppen(k,ps){
-  if(k.art!=='Tagescheck'&&k.art!=='Rundgang')return objGruppen(ps);
+  if(!istRegelGruppiert(k))return objGruppen(ps);
   const gs=regelGruppen(ps.filter(p=>!p.geraet));
   const byG={};ps.filter(p=>p.geraet).forEach(p=>{(byG[p.geraet]=byG[p.geraet]||[]).push(p);});
   Object.keys(byG).forEach((id,ix)=>{const m=DB.maschinen.find(x=>x.id===id);
@@ -5821,10 +5833,210 @@ const DL=()=>`<datalist id="dlPers">${DB.personen.map(x=>`<option value="${esc(x
 
 /* ---------- Screens ---------- */
 const S={};
+
+/* ===== Phase 1 (Demo): Wochencheck, Begründung am Mangel, Massnahmenvorschläge ===== */
+/* Wochencheck: Polier, alle 7 Tage. Inhalt aus geprüften Tagescheck- und Rundgangpunkten,
+   Fragen auf die Woche umformuliert; Soll, Priorität, Stopp und Rechtsgrundlage bleiben wie in der Quelle. */
+(function(){
+  const Q={
+    'TC-01':['Arbeitsvorbereitung Woche','Sind die Arbeiten dieser Woche mit der Equipe besprochen: Gefahren, Sperrzonen, wer macht was?'],
+    'RG-03':['Instruktion Neue','Sind alle, die diese Woche neu auf der Baustelle sind (auch Temporäre und Subunternehmer), über die 10 lebenswichtigen Regeln und STOPP bei Gefahr instruiert?'],
+    'TC-02':['Werkleitungen','Sind alle Werkleitungen im Arbeitsbereich abgeklärt und markiert, und liegen die aktuellen Pläne auf der Baustelle?'],
+    'RG-40':['Freileitungen','Halten Bagger, Kran und Gerüst Abstand zu Freileitungen, oder ist die Leitung abgeschaltet beziehungsweise abgeschrankt?'],
+    'RG-06':['Signalisation','Stimmt die Signalisation mit dem bewilligten Plan überein, steht alles noch am richtigen Ort und leuchtet nachts?'],
+    'TC-17':['Abschrankung Dritte','Ist die Baustelle gegenüber Fussgängern, Velos und Anwohnern lückenlos abgeschrankt, auch nach Feierabend?'],
+    'RG-31':['Warnkleidung','Tragen alle im Verkehrs- und Maschinenbereich Warnkleidung, sauber, geschlossen und passend zur Verkehrssituation?'],
+    'TC-07':['Rückwärtsfahren','Ist für Rückwärtsfahrten mit schlechter Sicht ein Einweiser bestimmt, und funktionieren Kamera und Rückfahrwarner?'],
+    'RG-11':['Bediener berechtigt','Bedienen nur ausgebildete und beauftragte Personen die Maschinen (Ausweis vorhanden)?'],
+    'TC-04':['Abfahrtskontrolle Maschinen','Wurde diese Woche jeden Tag vor Arbeitsbeginn die Abfahrtskontrolle der Maschinen gemacht, und sind gefundene Schäden behoben?'],
+    'TC-05':['Geräte / Strom','Sind Kabel, Stecker, Verteiler mit FI/RCD und Handgeräte unbeschädigt, und sind defekte Geräte ausgeschieden?'],
+    'TC-08':['Anschlagmittel','Sind Ketten, Schlingen und Haken gekennzeichnet, unbeschädigt und für die Last geeignet?'],
+    'RG-15':['Schwebende Lasten','Bleiben alle ausserhalb des Gefahrenbereichs von schwebenden Lasten und Schwenkbereichen?'],
+    'RG-18':['Seitenschutz ab 2 m','Sind alle Absturzkanten ab 2 m mit dreiteiligem Seitenschutz gesichert (Holm, Zwischenholm, Bordbrett)?'],
+    'RG-19':['Öffnungen / Schächte','Sind Schächte und Bodenöffnungen durchtrittsicher abgedeckt, gegen Verschieben gesichert oder abgeschrankt?'],
+    'RG-21':['Zugänge / Leitern','Gibt es sichere Zugänge in Graben und Baugrube (Treppe, Rampe oder gesicherte Leiter, 1 m über Austritt)?'],
+    'TC-11':['Ordnung / Stolpergefahr','Sind Wege und Arbeitsplätze frei von Stolperstellen: Material, Schläuche, Kabel, Schalungsreste, Schlamm, Löcher?'],
+    'RG-25':['Böschung / Spriessung','Sind Gräben und Baugruben ab 1.50 m Tiefe geböscht oder gespriesst, passend zum Boden und zum Wasser?'],
+    'RG-27':['Aushub am Rand','Liegen Aushub, Material und Maschinen mit genügend Abstand zum Graben- oder Baugrubenrand?'],
+    'TC-10':['PSA','Tragen alle die nötige PSA: Helm, Sicherheitsschuhe, Warnkleidung und je nach Arbeit Schutzbrille, Gehörschutz, Handschuhe?'],
+    'RG-32':['Staub / Atemschutz','Wird beim Schneiden und Fräsen Staub vermieden (Wasser, Absaugung), und ist Atemschutz vorhanden, wo nötig?'],
+    'TC-12':['Notfall','Sind Notfallnummer, Erste-Hilfe-Material, Sammelplatz und Zufahrt für die Ambulanz bekannt und frei?'],
+    'RG-36':['Betriebsstoffe','Sind Kanister beschriftet und dicht, steht eine Auffangwanne bereit, und ist Ölbindemittel auf der Baustelle?'],
+    'TC-16':['Offene Punkte','Sind die offenen Punkte der letzten Woche erledigt und kontrolliert, ob die Massnahme wirkt?']
+  };
+  let sort=1;
+  Object.entries(Q).forEach(([src,[objekt,frage]],i)=>{
+    const v=STAMM.pruefpunkte.find(p=>p.ID===src);if(!v)return;
+    if(STAMM.pruefpunkte.some(p=>p.ID==='WC-'+String(i+1).padStart(2,'0')))return;
+    STAMM.pruefpunkte.push(Object.assign({},v,{ID:'WC-'+String(i+1).padStart(2,'0'),Typ:'Wochencheck',Objektgruppe:'Wochencheck',Objekt:objekt,Prueffrage:frage,Sort:sort++,Quelle:(v.Quelle||'')+' · Wochencheck aus '+src}));
+  });
+})();
+ARTEN.Wochencheck='Wochencheck (Polier)';ARTK.Wochencheck='Wochencheck';
+ARTEN.Tagescheck='Tagescheck / Abfahrtskontrolle';
+/* Reihenfolge der Kontrollarten in Auswahllisten: Wochencheck vor Tagescheck */
+(function(){const alt=Object.assign({},ARTEN);Object.keys(ARTEN).forEach(k=>delete ARTEN[k]);['Wochencheck','Tagescheck'].concat(Object.keys(alt).filter(k=>k!=='Wochencheck'&&k!=='Tagescheck')).forEach(k=>ARTEN[k]=alt[k]);})();
+delete RHYTHMUS.Tagescheck;RHYTHMUS.Wochencheck=7;
+ROLLENNAV.Polier=['start','neu','kontrollen','massnahmen','meldungen','meinebs','instruktion','gespraech','einstellungen'];
+NAV.splice(NAV.findIndex(n=>n[0]==='baustellen'),0,['meinebs','Meine Baustelle','▲']);
+ROLLENNAV['Bauführer']=ROLLENNAV['Bauführer'].filter(x=>x!=='meinebs');
+function istRegelGruppiert(k){return k.art==='Tagescheck'||k.art==='Rundgang'||k.art==='Wochencheck';}
+
+/* Begründung je lebenswichtige Regel (0 = Organisation / Gesundheitsschutz).
+   warum: kurz, warum der Mangel gefährlich ist. soll: was im Bild zu sehen ist (Antippen). */
+const BEGRUENDUNG={
+ 1:{warum:'Wer Werkleitungen, Baugrund und Ablauf nicht kennt, trifft mit dem Bagger eine Gas- oder Stromleitung. Ein Treffer an einer Stromleitung kann tödlich sein, ein Gasleck kann explodieren. Darum zuerst Pläne einholen, Leitungen suchen und markieren, dann graben.',
+    soll:'Sollzustand: Leitungen auf dem Boden markiert (Farbe je Medium), Werkleitungspläne aktuell auf der Baustelle, in Leitungsnähe von Hand freilegen.'},
+ 2:{warum:'Der Verkehr fährt dicht am Arbeitsplatz vorbei, oft abgelenkt und zu schnell. Ohne korrekte Signalisation und lückenlose Abschrankung erkennt der Lenker die Baustelle zu spät, und Fussgänger laufen in den Gefahrenbereich.',
+    soll:'Sollzustand: Signalisation nach bewilligtem Plan, Abschrankung ohne Lücken, nachts beleuchtet, Fussgänger sicher um die Baustelle geführt.'},
+ 3:{warum:'Wer nicht gesehen wird, wird angefahren, vom Strassenverkehr oder von der eigenen Baumaschine. Warnkleidung wirkt nur, wenn sie sauber und geschlossen ist und zur Verkehrssituation passt. Bei Dämmerung und Nacht braucht es zusätzlich Licht.',
+    soll:'Sollzustand: Warnkleidung geschlossen und sauber, Reflexstreifen sichtbar, Arbeitsplatz bei schlechter Sicht beleuchtet.'},
+ 4:{warum:'Bagger, Dumper und Lastwagen haben grosse tote Winkel. Beim Rückwärtsfahren sieht der Fahrer niemanden hinter dem Fahrzeug. Erst Blickkontakt, dann in den Gefahrenbereich: Das verhindert Überrollen und Quetschen.',
+    soll:'Sollzustand: Niemand im toten Winkel. Wer in den Gefahrenbereich muss, sucht zuerst Blickkontakt mit dem Fahrer. Rückwärts nur mit Einweiser oder freier Sicht.'},
+ 5:{warum:'Defekte Bremsen, fehlende Schutzeinrichtungen oder ungeschulte Bediener führen zu Kippen, Überfahren und Quetschen. Eine Maschine darf nur bedienen, wer ausgebildet und beauftragt ist, und nur nach der Abfahrtskontrolle.',
+    soll:'Sollzustand: Abfahrtskontrolle gemacht (Bremsen, Spiegel, Kamera, Warner, Leckagen), Bediener mit Ausweis, Maschine gesichert abgestellt.'},
+ 6:{warum:'Reisst eine Kette oder rutscht die Last aus der Schlinge, fällt sie ohne Vorwarnung. Wer darunter oder daneben steht, hat keine Chance. Darum nur geprüfte, gekennzeichnete Anschlagmittel und niemand im Gefahrenbereich der Last.',
+    soll:'Sollzustand: Anschlagmittel mit Etikette und ohne Schäden, Gefahrenbereich unter der Last frei, Lasten mit Führungsseil führen, nicht von Hand.'},
+ 7:{warum:'Abstürze sind auf dem Bau eine der häufigsten Ursachen tödlicher Unfälle, auch aus geringer Höhe. Ein fester Seitenschutz oder eine gesicherte Abdeckung verhindert den Sturz, bevor er passiert. Ab 2 m Absturzhöhe ist Seitenschutz Pflicht.',
+    soll:'Sollzustand: dreiteiliger Seitenschutz mit Holm auf 1 m Höhe, Zwischenholm und Bordbrett (mind. 15 cm). Öffnungen durchtrittsicher abgedeckt und fixiert.'},
+ 8:{warum:'Stolpern, Ausrutschen und Stürze auf gleicher Ebene sind auf Baustellen die häufigste Unfallursache überhaupt. Herumliegendes Material, Schläuche und improvisierte Aufstiege führen zu Verstauchungen, Brüchen und Abstürzen.',
+    soll:'Sollzustand: Wege frei und eben, Material geordnet gelagert, Kabel und Schläuche geführt. Leiter gesichert, 1 m über die Austrittsstelle, Anstellwinkel etwa 70°.'},
+ 9:{warum:'Ein Kubikmeter Erde wiegt rund 2 Tonnen. Bricht eine ungesicherte Grabenwand ein, wird der Brustkorb eingedrückt und man kann nicht mehr atmen, auch wenn man nur teilweise verschüttet ist. Ab 1.50 m Tiefe braucht ein Graben Böschung oder Spriessung.',
+    soll:'Sollzustand: ab 1.50 m Tiefe geböscht oder gespriesst, Randstreifen frei von Aushub und Material, sicherer Zugang (Treppe oder gesicherte Leiter).'},
+ 10:{warum:'Helm, Sicherheitsschuhe und Warnkleidung sind der letzte Schutz, wenn alles andere versagt: der fallende Stein, der Nagel im Brett, der rückwärtsfahrende Dumper. Gehörschutz, Schutzbrille und Atemschutz verhindern Schäden, die erst nach Jahren sichtbar werden.',
+    soll:'Sollzustand: Helm, Sicherheitsschuhe, Warnkleidung; je nach Arbeit Schutzbrille, Gehörschutz, Handschuhe und Atemschutz.'},
+ 0:{warum:'Im Notfall zählt jede Minute. Wer Notfallnummer, Erste-Hilfe-Material und Zufahrt für die Ambulanz nicht kennt, verliert Zeit. Gefahrstoffe, Staub, Hitze und Lärm machen langsam krank, deshalb gehören sie in jede Kontrolle.',
+    soll:'Sollzustand: Notfallnummer 144 und Standort ausgehängt, Erste-Hilfe-Material und Nothelfer vor Ort, Zufahrt frei, Sammelplatz bekannt.'}
+};
+
+/* Massnahmenvorschläge: je Regel die gängigsten Lösungen, dazu einzelne Prüfpunkte genauer. */
+const VORSCHLAEGE={
+ 1:['Werkleitungspläne einholen und auf die Baustelle bringen','Leitungen orten und am Boden markieren','In Leitungsnähe nur von Hand oder mit Saugbagger freilegen','Arbeitsablauf mit der Equipe neu besprechen'],
+ 2:['Signalisation nach Plan korrigieren','Lücke in der Abschrankung schliessen','Beleuchtung der Absperrung ersetzen oder ergänzen','Fussgängerführung neu stellen'],
+ 3:['Warnkleidung ersetzen (sauber, passende Klasse)','Arbeitsplatz zusätzlich beleuchten','Mitarbeitende auf Sichtbarkeit instruieren'],
+ 4:['Einweiser bestimmen und instruieren','Rückfahrzone absperren','Rückfahrkamera oder -warner instand stellen','Regel «erst Blickkontakt» mit der Equipe besprechen'],
+ 5:['Maschine ausser Betrieb nehmen und reparieren lassen','Abfahrtskontrolle nachholen und festhalten','Nur berechtigte Person einsetzen','Schutzeinrichtung wieder montieren'],
+ 6:['Beschädigtes Anschlagmittel ausscheiden und ersetzen','Gefahrenbereich der Last absperren','Führungsseil verwenden','Anschläger instruieren'],
+ 7:['Seitenschutz montieren (Holm, Zwischenholm, Bordbrett)','Öffnung durchtrittsicher abdecken und fixieren','Absperrung mit Abstand zur Kante stellen','Bis zur Sicherung Bereich sperren'],
+ 8:['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Leiter richtig aufstellen und sichern','Treppe oder Rampe erstellen'],
+ 9:['Graben spriessen oder abböschen','Aushub vom Rand wegnehmen','Sicheren Zugang erstellen','Bis zur Sicherung niemand in den Graben'],
+ 10:['Fehlende PSA abgeben','Beschädigte PSA ersetzen','Tragpflicht mit der Equipe besprechen','PSA-Vorrat auf der Baustelle ergänzen'],
+ 0:['Notfallblatt aushängen','Erste-Hilfe-Material ergänzen','Zufahrt für die Ambulanz freihalten','Gefahrstoffe beschriften und in Auffangwanne stellen']
+};
+const VORSCHLAEGE_OBJ={
+ 'Ordnung / Stolpergefahr':['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Abfallmulde leeren oder zusätzliche stellen','Schlamm und Kies vom Gehweg entfernen'],
+ 'Ordnung / Sauberkeit':['Weg räumen und Material geordnet lagern','Kabel und Schläuche hochhängen oder abdecken','Abfallmulde leeren oder zusätzliche stellen'],
+ 'Staub / Atemschutz':['Nass schneiden oder Absaugung einsetzen','FFP2/FFP3-Masken abgeben','Arbeitsbereich für Unbeteiligte sperren'],
+ 'Atemschutz/Staub':['Nass schneiden oder Absaugung einsetzen','FFP2/FFP3-Masken abgeben','Arbeitsbereich für Unbeteiligte sperren'],
+ 'Betriebsstoffe':['Kanister beschriften','Auffangwanne stellen','Ölbindemittel auf die Baustelle bringen'],
+ 'Offene Punkte':['Offene Massnahmen mit Zuständigen nachfassen','Wirksamkeit vor Ort prüfen','Überfällige Punkte dem Bauführer melden'],
+ 'Abfahrtskontrolle Maschinen':['Abfahrtskontrolle täglich festhalten (Tagescheck)','Schaden melden und Maschine reparieren lassen','Bediener auf Abfahrtskontrolle instruieren']
+};
+function vorschlaegeFuer(p){return VORSCHLAEGE_OBJ[p.objekt]||VORSCHLAEGE_OBJ[p.objektgruppe]||VORSCHLAEGE[p.regel]||VORSCHLAEGE[0];}
+function begruendungFuer(p){return BEGRUENDUNG[p.regel]||BEGRUENDUNG[0];}
+function vorschlagNehmen(id,ix){const p=DB.punkte.find(x=>x.id===id);if(!p)return;const t=vorschlaegeFuer(p)[ix];if(!t)return;
+  const alt=(p.massnahme||'').trim();if(alt.split(/\n/).map(s=>s.replace(/^·\s*/,'')).includes(t)){toast('Schon eingetragen.');return;}
+  setP(id,'massnahme',alt?alt+'\n'+t:t);render();}
+function sollUmschalten(el){el.classList.toggle('zeigt');}
+
+/* Sollbilder: schematische Zeichnungen, offline, ohne fremde Bilder. */
+const SB_GRUND='<rect x="0" y="0" width="240" height="160" rx="10" fill="#F4F6F3"/>';
+const SB_OK='<g transform="translate(206,10)"><circle cx="12" cy="12" r="12" fill="#2E8B57"/><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>';
+const SB_MANN=(x,y,s,vest)=>`<g transform="translate(${x},${y}) scale(${s})"><circle cx="0" cy="-34" r="6" fill="#E8C4A0"/><path d="M-7 -38 a7 6 0 0 1 14 0 z" fill="#F2C200"/><rect x="-7" y="-28" width="14" height="20" rx="3" fill="${vest||'#E0731D'}"/><rect x="-7" y="-20" width="14" height="2.5" fill="#E8E8E8"/><rect x="-6" y="-8" width="5" height="16" fill="#38424D"/><rect x="1" y="-8" width="5" height="16" fill="#38424D"/><rect x="-7" y="7" width="6" height="3" fill="#222"/><rect x="1" y="7" width="6" height="3" fill="#222"/></g>`;
+const SOLLBILD={
+ 1:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="10" y="60" width="220" height="90" fill="#C9B79C"/><path d="M10 60h220" stroke="#8C7A5E" stroke-width="2"/>
+   <path d="M20 85 h200" stroke="#F2C200" stroke-width="5" stroke-dasharray="12 6"/><path d="M20 105 h200" stroke="#D0342C" stroke-width="5" stroke-dasharray="12 6"/><path d="M20 125 h200" stroke="#2F6FB5" stroke-width="5" stroke-dasharray="12 6"/>
+   <text x="24" y="80" font-size="9" fill="#333">Gas</text><text x="24" y="100" font-size="9" fill="#333">Strom</text><text x="24" y="120" font-size="9" fill="#333">Wasser</text>
+   <rect x="150" y="18" width="62" height="40" rx="3" fill="#fff" stroke="#666"/><path d="M156 30h50M156 38h40M156 46h46" stroke="#999" stroke-width="2"/><text x="156" y="26" font-size="8" fill="#333">Plan</text>${SB_MANN(110,58,1)}${SB_OK}</svg>`,
+ 2:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="0" y="70" width="240" height="90" fill="#6E747A"/><path d="M0 115h240" stroke="#fff" stroke-width="3" stroke-dasharray="16 12"/>
+   <g>${[30,70,110,150,190].map(x=>`<rect x="${x}" y="78" width="34" height="7" fill="#D0342C"/><rect x="${x+8}" y="78" width="8" height="7" fill="#fff"/><rect x="${x+24}" y="78" width="8" height="7" fill="#fff"/><rect x="${x+3}" y="85" width="3" height="12" fill="#444"/><rect x="${x+28}" y="85" width="3" height="12" fill="#444"/><circle cx="${x+17}" cy="74" r="3.5" fill="#F2C200"/>`).join('')}</g>
+   <path d="M20 20 l18 32 h-36 z" fill="#fff" stroke="#D0342C" stroke-width="4"/><rect x="17.5" y="52" width="5" height="18" fill="#666"/>${SB_MANN(120,66,0.9)}${SB_MANN(160,66,0.9)}${SB_OK}</svg>`,
+ 3:`<svg viewBox="0 0 240 160">${SB_GRUND}<path d="M0 160 L240 160 L240 120 L0 140 z" fill="#5E646A"/><path d="M150 20 l60 100 h-40 z" fill="#FFF3B0" opacity=".7"/><circle cx="176" cy="22" r="8" fill="#F2C200"/>
+   ${SB_MANN(100,130,2.4,'#F2C200')}<rect x="83.2" y="76" width="33.6" height="5" fill="#E8E8E8"/><rect x="83.2" y="94" width="33.6" height="5" fill="#E8E8E8"/>${SB_OK}</svg>`,
+ 4:`<svg viewBox="0 0 240 160">${SB_GRUND}<path d="M70 95 L20 150 L150 150 L110 95 z" fill="#D0342C" opacity=".18"/><text x="52" y="142" font-size="10" fill="#B0281F">toter Winkel</text>
+   <rect x="60" y="45" width="60" height="50" rx="6" fill="#F2C200" stroke="#7A6400"/><rect x="66" y="50" width="22" height="20" rx="2" fill="#9FC7E8"/><path d="M120 60 l50 -20 l20 10" stroke="#7A6400" stroke-width="6" fill="none"/>
+   ${SB_MANN(195,110,1)}<path d="M78 60 L190 74" stroke="#2E8B57" stroke-width="2" stroke-dasharray="4 3"/><circle cx="78" cy="60" r="3" fill="#2E8B57"/><text x="128" y="96" font-size="9" fill="#1E6B40">Blickkontakt</text>${SB_OK}</svg>`,
+ 5:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="20" y="60" width="110" height="50" rx="6" fill="#F2C200" stroke="#7A6400"/><rect x="28" y="40" width="40" height="34" rx="3" fill="#F2C200" stroke="#7A6400"/><rect x="33" y="45" width="30" height="20" fill="#9FC7E8"/>
+   <circle cx="45" cy="118" r="14" fill="#333"/><circle cx="105" cy="118" r="14" fill="#333"/><circle cx="45" cy="118" r="5" fill="#888"/><circle cx="105" cy="118" r="5" fill="#888"/>
+   <g font-size="10" fill="#222">${['Bremsen','Spiegel / Kamera','Warner / Licht','keine Leckagen','Ausweis Bediener'].map((t,i)=>`<circle cx="152" cy="${44+i*20}" r="6" fill="#2E8B57"/><path d="M149 ${44+i*20}l2 2 4-4" stroke="#fff" stroke-width="1.8" fill="none"/><text x="162" y="${48+i*20}">${t}</text>`).join('')}</g></svg>`,
+ 6:`<svg viewBox="0 0 240 160">${SB_GRUND}<path d="M30 10 h170" stroke="#7A6400" stroke-width="6"/><path d="M110 10 v40" stroke="#444" stroke-width="2"/><path d="M110 50 l-18 22 M110 50 l18 22" stroke="#888" stroke-width="2.5"/>
+   <rect x="86" y="72" width="48" height="26" fill="#9AA3AB" stroke="#555"/><path d="M134 85 q30 20 52 30" stroke="#8B5A2B" stroke-width="1.6" fill="none"/>
+   <ellipse cx="110" cy="138" rx="70" ry="14" fill="#D0342C" opacity=".15" stroke="#D0342C" stroke-dasharray="6 4"/><text x="80" y="142" font-size="9" fill="#B0281F">Gefahrenbereich frei</text>
+   ${SB_MANN(205,140,1)}${SB_OK}</svg>`,
+ 7:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="0" y="100" width="150" height="60" fill="#B9B4AA"/><rect x="150" y="100" width="90" height="60" fill="#E4E6E2"/><path d="M150 100 v60" stroke="#555" stroke-width="2"/>
+   <rect x="140" y="40" width="5" height="60" fill="#E0731D"/><rect x="96" y="40" width="5" height="60" fill="#E0731D"/><rect x="94" y="40" width="52" height="5" fill="#D0342C"/><rect x="94" y="68" width="52" height="4" fill="#D0342C"/><rect x="94" y="88" width="52" height="12" fill="#C8A060"/>
+   <g font-size="9" fill="#222"><text x="6" y="46">Holm 1 m</text><text x="6" y="73">Zwischenholm</text><text x="6" y="92">Bordbrett</text><text x="6" y="103">≥15 cm</text></g>
+   <path d="M200 100 v50" stroke="#555"/><path d="M195 100 h10 M195 150 h10" stroke="#555"/><text x="172" y="130" font-size="10" fill="#222">ab 2 m</text>${SB_MANN(120,98,0.9)}${SB_OK}</svg>`,
+ 8:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="0" y="40" width="120" height="8" fill="#8C7A5E"/><rect x="0" y="48" width="120" height="112" fill="#C9B79C" opacity=".5"/><rect x="120" y="140" width="120" height="20" fill="#8C7A5E"/>
+   <path d="M100 6 L150 140 M114 6 L164 140" stroke="#888" stroke-width="4"/>${Array.from({length:10},(_,i)=>`<path d="M${102+i*5} ${12+i*13} h14" stroke="#888" stroke-width="3"/>`).join('')}
+   <path d="M142 6 v34" stroke="#2E8B57" stroke-width="1.5"/><path d="M137 6h10M137 40h10" stroke="#2E8B57"/><text x="150" y="60" font-size="10" fill="#1E6B40">1 m über Austritt</text><text x="168" y="134" font-size="9" fill="#333">ca. 70°</text>
+   <path d="M10 30 h60" stroke="#2E8B57" stroke-width="2"/><text x="10" y="24" font-size="9" fill="#1E6B40">Weg frei</text>${SB_OK}</svg>`,
+ 9:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="0" y="50" width="240" height="110" fill="#C9B79C"/>
+   <path d="M12 50 L46 140 L76 140 L110 50 z" fill="#F4F6F3" stroke="#8C7A5E" stroke-width="2"/><text x="36" y="44" font-size="9" fill="#222">geböscht</text>
+   <rect x="140" y="50" width="62" height="90" fill="#F4F6F3"/><rect x="140" y="50" width="6" height="90" fill="#4A6FA5"/><rect x="196" y="50" width="6" height="90" fill="#4A6FA5"/>${[70,98,126].map(y=>`<rect x="146" y="${y}" width="50" height="5" fill="#E0731D"/>`).join('')}<text x="146" y="44" font-size="9" fill="#222">gespriesst</text>
+   <path d="M212 50 h22 l-4 -12 h-14 z" fill="#8C7A5E"/><text x="150" y="155" font-size="9" fill="#222">Rand frei halten</text>
+   <path d="M120 50 v90" stroke="#555"/><path d="M116 50h8M116 140h8" stroke="#555"/><text x="114" y="98" font-size="9" fill="#222" transform="rotate(-90 120 98)">≥1.50 m</text>${SB_OK}</svg>`,
+ 10:`<svg viewBox="0 0 240 160">${SB_GRUND}${SB_MANN(80,140,3,'#F2C200')}<rect x="65" y="44" width="30" height="7" rx="3" fill="#2B2B2B" opacity=".75"/><path d="M60 40 a6 6 0 0 0 0 14 M100 40 a6 6 0 0 1 0 14" stroke="#D0342C" stroke-width="5" fill="none"/>
+   <g font-size="10" fill="#222">${['Helm','Schutzbrille','Gehörschutz','Warnkleidung','Handschuhe','Sicherheitsschuhe'].map((t,i)=>`<circle cx="142" cy="${30+i*20}" r="6" fill="#2E8B57"/><path d="M139 ${30+i*20}l2 2 4-4" stroke="#fff" stroke-width="1.8" fill="none"/><text x="152" y="${34+i*20}">${t}</text>`).join('')}</g></svg>`,
+ 0:`<svg viewBox="0 0 240 160">${SB_GRUND}<rect x="20" y="30" width="70" height="70" rx="8" fill="#2E8B57"/><rect x="48" y="42" width="14" height="46" fill="#fff"/><rect x="32" y="58" width="46" height="14" fill="#fff"/>
+   <rect x="110" y="30" width="110" height="34" rx="6" fill="#D0342C"/><text x="122" y="54" font-size="20" font-weight="700" fill="#fff">☎ 144</text>
+   <rect x="110" y="74" width="110" height="26" rx="6" fill="#2E8B57"/><text x="120" y="92" font-size="11" fill="#fff">Sammelplatz</text>
+   <text x="20" y="124" font-size="10" fill="#222">Notfallblatt ausgehängt</text><text x="20" y="140" font-size="10" fill="#222">Zufahrt frei · Nothelfer bekannt</text></svg>`
+};
+function begruendungKarte(p,ro){const b=begruendungFuer(p);const svg=SOLLBILD[p.regel]||SOLLBILD[0];
+  const vs=vorschlaegeFuer(p);
+  return `<div class="warum ${p.arbeitsstopp==='Ja'?'stoppw':''}"><div class="wtext"><b>${p.arbeitsstopp==='Ja'?'Warum hier die Arbeit stoppt':'Warum das gefährlich ist'}</b><p>${esc(b.warum)}</p>
+    <div class="small muted">${p.soll?'Soll: '+esc(p.soll):''}${p.recht?' · '+esc(p.recht):''}</div></div>
+    <button class="wbild" type="button" onclick="sollUmschalten(this)" aria-label="Sollzustand anzeigen">${svg}<span class="wcap">${esc(b.soll)}</span><span class="wtip">Antippen: Sollzustand</span></button></div>
+    ${ro?'':`<div class="vorschl"><span class="small" style="font-weight:600;color:var(--ink2)">Häufige Massnahmen – antippen zum Übernehmen</span><div class="row">${vs.map((t,i)=>`<button class="btn sm" type="button" onclick="vorschlagNehmen('${p.id}',${i})">＋ ${esc(t)}</button>`).join('')}</div></div>`}`;}
+
+/* Meine Baustelle (Polier): alles, was vorbereitet wurde, nur lesen. */
+function bereitschaft(b){const pers=DB.personen.filter(p=>p.baustelle===b.id),masch=DB.maschinen.filter(m=>m.baustelle===b.id);
+  const ohneInstr=pers.filter(p=>!p.instr10||daysBetween(p.instr10,today())>365);
+  return [
+    ['Polier eingetragen',!!b.polier,b.polier||'fehlt'],
+    ['Bauleiter eingetragen',!!b.bauleiter,b.bauleiter||'fehlt'],
+    ['Personen zugeteilt',pers.length>0,pers.length+' Personen'],
+    ['Maschinen zugeteilt',masch.length>0,masch.length+' Maschinen / Geräte'],
+    ['SiGe-Konzept hinterlegt',!!(b.sige||{}).datum,(b.sige||{}).datum?'Stand '+fmtD(b.sige.datum):'fehlt'],
+    ['Alle instruiert (10 Regeln, < 1 Jahr)',pers.length>0&&ohneInstr.length===0,ohneInstr.length?ohneInstr.length+' ohne gültige Instruktion':'ok']];}
+function bereitKurz(b){const r=bereitschaft(b);const f=r.filter(x=>!x[1]).length;return f?`<span class="pill o">${f} offen für Polier</span>`:'<span class="pill g">bereit für Polier</span>';}
+S.meinebs=()=>{
+  const akt=DB.baustellen.filter(b=>b.status==='Aktiv');const id=meineBaustelle()||(akt[0]||{}).id;const b=DB.baustellen.find(x=>x.id===id);
+  if(!b)return `<div class="head"><div><h1>Meine Baustelle</h1><p>Noch keine Baustelle auf diesem Gerät.</p></div></div><div class="card"><p>Der Bauführer bereitet die Baustelle vor und schickt dir das Baustellen-Paket. Unter «Daten / Geräte» einlesen.</p><button class="btn p" onclick="go('einstellungen')">Paket einlesen</button></div>`;
+  const pers=DB.personen.filter(p=>p.baustelle===b.id),masch=DB.maschinen.filter(m=>m.baustelle===b.id),subs=DB.subs.filter(s=>s.baustelle===b.id);
+  const s=b.sige||{};
+  return `<div class="head"><div><div class="eyebrow">Meine Baustelle</div><h1>${esc(b.name)}</h1><p>${esc(b.nr||'')} · ${esc(b.ort||'')} · Bauleiter ${esc(b.bauleiter||'–')} · Polier ${esc(b.polier||'–')}</p></div>
+   ${akt.length>1?`<select onchange="setMeineBaustelle(this.value);render()">${akt.map(x=>`<option value="${x.id}" ${x.id===b.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}</div>
+  <p class="small muted mb">Vom Bauführer vorbereitet. Änderungen an Personen und Maschinen macht der Bauführer und schickt ein neues Paket.</p>
+  <div class="grid g2">
+   <div class="card"><h3>Personen (${pers.length})</h3>${pers.length?`<div class="list">${pers.map(p=>{const ok=p.instr10&&daysBetween(p.instr10,today())<=365;return `<div class="item"><span class="pill ${ok?'g':'r'}">${ok?'instruiert':'Instruktion fehlt'}</span><span><div class="ti">${esc(p.name)}</div><div class="su">${esc(p.funktion||'')}${p.firma?' · '+esc(p.firma):''}${(p.ausweise||[]).length?' · '+esc(p.ausweise.join(', ')):''}</div></span></div>`;}).join('')}</div>`:'<p class="small muted">Noch niemand zugeteilt.</p>'}</div>
+   <div class="card"><h3>Maschinen und Geräte (${masch.length})</h3>${masch.length?`<div class="list">${masch.map(m=>`<div class="item"><span class="pill n">${esc(m.inv||'')}</span><span><div class="ti">${esc(m.name)}</div><div class="su">${esc(m.typ||'')}</div></span></div>`).join('')}</div>`:'<p class="small muted">Noch keine Maschinen zugeteilt.</p>'}
+   ${subs.length?`<h3 class="mt">Subunternehmer (${subs.length})</h3><div class="small">${subs.map(x=>esc(x.firma||x.name||'')).join(' · ')}</div>`:''}</div>
+   <div class="card"><h3>SiGe-Konzept</h3>${s.datum?`<p class="small">Stand ${fmtD(s.datum)}${s.von?' · '+esc(s.von):''}${s.instruiert?' · instruiert am '+fmtD(s.instruiert):''}</p>${s.link?`<p class="small muted">Ablage: ${esc(s.link)}</p>`:''}${s.foto?`<img src="${s.foto}" alt="SiGe-Konzept" style="max-width:100%;border-radius:8px">`:''}`:'<p class="small crit-c">Noch nicht hinterlegt.</p>'}</div>
+   <div class="card"><h3>Vorbereitung</h3><div class="list">${bereitschaft(b).map(([t,ok,info])=>`<div class="item"><span class="pill ${ok?'g':'o'}">${ok?'✓':'offen'}</span><span><div class="ti">${t}</div><div class="su">${esc(info)}</div></span></div>`).join('')}</div></div>
+  </div>
+  <div class="row mt"><button class="btn p" onclick="go('neu',{art:'Wochencheck',bs:'${b.id}'})">Wochencheck starten</button><button class="btn" onclick="go('neu',{art:'Tagescheck',bs:'${b.id}'})">Abfahrtskontrolle Maschinen</button></div>`;};
+
+/* Baustellen-Paket: nur diese Baustelle, ihre Personen, Maschinen, Subunternehmer und offenen Punkte. */
+function paketFuerPolier(bid){const b=DB.baustellen.find(x=>x.id===bid);if(!b)return;
+  const r=bereitschaft(b).filter(x=>!x[1]);
+  const weiter=()=>{
+    const ks=DB.kontrollen.filter(k=>k.baustelle===bid);const kid=new Set(ks.map(k=>k.id));
+    const ms=DB.massnahmen.filter(m=>m.baustelle===bid&&m.status!=='Erledigt');
+    const pid=new Set(ms.map(m=>m.punkt));
+    const d={paket:{baustelle:bid,rolle:'Polier',polier:b.polier||'',erstellt:new Date().toISOString(),von:(DB.geraet||{}).name||''},
+      geraet:DB.geraet,exportiert:new Date().toISOString(),seq:DB.seq,cfg:{sibeName:(DB.cfg||{}).sibeName,sibeMail:(DB.cfg||{}).sibeMail,sibeTel:(DB.cfg||{}).sibeTel,firma:(DB.cfg||{}).firma,appUrl:(DB.cfg||{}).appUrl},
+      baustellen:[b],personen:DB.personen.filter(p=>p.baustelle===bid),maschinen:DB.maschinen.filter(m=>m.baustelle===bid),subs:DB.subs.filter(s=>s.baustelle===bid),
+      kontrollen:ks,punkte:DB.punkte.filter(p=>kid.has(p.kontrolle)||pid.has(p.id)),massnahmen:ms,meldungen:(DB.meldungen||[]).filter(m=>m.baustelle===bid),instruktionen:(DB.instruktionen||[]).filter(i=>i.baustelle===bid)};
+    const nm=(b.nr||b.name).replace(/[^\wäöüÄÖÜ.-]+/g,'_');
+    dl(`baustellenpaket_${nm}_${today()}.json`,JSON.stringify(d),'application/json');};
+  if(r.length)frage('Baustelle noch nicht ganz vorbereitet','Noch offen:\n'+r.map(x=>'· '+x[0]+' ('+x[2]+')').join('\n')+'\n\nTrotzdem als Paket für den Polier speichern?','Trotzdem speichern').then(j=>{if(j)weiter();});else weiter();}
+
 S.start=()=>{
   const mb=meineBaustelle();
   const ms=mb?DB.massnahmen.filter(m=>m.baustelle===mb):DB.massnahmen;const krit=ms.filter(m=>m.status!=='Erledigt'&&m.prio==='Kritisch').length;const stop=ms.filter(m=>m.arbeitsstopp==='Ja'&&!m.wiederaufnahmeAm).length;
-  const ueb=ms.filter(ueberfaellig).length;const nk=ms.filter(m=>m.nkStatus==='Offen').length;const offen=DB.kontrollen.filter(k=>!k.abgeschlossen&&(!mb||k.baustelle===mb));const faellig=kontrollenFaellig().filter(f=>!mb||f.b.id===mb);
+  const ueb=ms.filter(ueberfaellig).length;const nk=ms.filter(m=>m.nkStatus==='Offen').length;const ARTEN_ROLLE={'Polier':['Wochencheck','Tagescheck','Geraetepruefung'],'Bauführer':['Wochencheck','Tagescheck','Geraetepruefung','Rundgang']};const artOk=a=>!ARTEN_ROLLE[rolle()]||ARTEN_ROLLE[rolle()].includes(a);
+  const offen=DB.kontrollen.filter(k=>!k.abgeschlossen&&(!mb||k.baustelle===mb)&&artOk(k.art));const faellig=kontrollenFaellig().filter(f=>(!mb||f.b.id===mb)&&artOk(f.art));
   const n=t=>STAMM.pruefpunkte.filter(p=>p.Typ===t).length;const leer=DB.baustellen.length===0;
   const tab=route.tab||'heute';
   const bsWahl=DB.baustellen.filter(b=>b.status==='Aktiv');
@@ -5838,8 +6050,8 @@ S.start=()=>{
   `${leer?`<div class="card mb" style="border-left:4px solid var(--accent)"><h3>Erste Schritte – das Programm ist noch leer</h3>
   <p class="small muted">Wer arbeitet mit diesem Gerät? Die Ansicht zeigt dann nur, was für diese Aufgabe nötig ist.</p>
   <div class="rollen mb">${ROLLEN.map(r=>`<button class="${rolle()===r?'on':''}" onclick="setRolle('${r}')">${r}</button>`).join('')}</div>
-  ${rolle()==='Polier'?`<p>Auf diesem Gerät sind noch keine Baustellen. Der Bauführer schickt dir die Übergabe-Datei – unter «Daten / Geräte» einlesen, dann hast du deine Baustelle und deine offenen Punkte.</p>
-  <div class="row"><button class="btn p" onclick="go('einstellungen')">Übergabe-Datei einlesen</button><button class="btn" onclick="go('baustellen',{edit:''})">Baustelle selbst anlegen</button></div></div>`:`
+  ${rolle()==='Polier'?`<p>Auf diesem Gerät sind noch keine Baustellen. Der Bauführer bereitet deine Baustelle vor und schickt dir das Baustellen-Paket (Mail, Teams, AirDrop). Unter «Daten / Geräte» → «Daten zusammenführen» einlesen. Danach sind Baustelle, Personen, Maschinen und offene Punkte da, und du kannst direkt mit dem Wochencheck anfangen.</p>
+  <div class="row"><button class="btn p" onclick="go('einstellungen')">Baustellen-Paket einlesen</button><button class="btn" onclick="go('baustellen',{edit:''})">Baustelle selbst anlegen</button></div></div>`:`
   <p class="small muted">Drei Dinge, dann kann es losgehen. Alles lässt sich später ändern.</p>
   <div class="grid g3 mt">
     <button class="tile" onclick="go('baustellen',{edit:''})"><span class="t">1 · Baustelle anlegen</span><span class="d">Name, Projekt-Nr., Ort, Bauleiter und Polier – dazu SiGe-Konzept und Sparte</span></button>
@@ -5851,16 +6063,18 @@ S.start=()=>{
     ${kpi('crit',stop,'Arbeitsstopps aktiv',"go('massnahmen',{f:'stopp'})")}
     ${kpi('crit',krit,'Kritische Mängel offen',"go('massnahmen',{f:'krit'})")}
     ${kpi('warn',ueb,'Massnahmen überfällig',"go('massnahmen',{f:'ueb'})")}
-    ${kpi('acc',nk,'Wirksamkeitskontrollen offen',"go('massnahmen',{f:'nk'})")}
+    ${rolle()==='Polier'?'':kpi('acc',nk,'Wirksamkeitskontrollen offen',"go('massnahmen',{f:'nk'})")}
     ${kpi(faellig.length?'warn':'ok',faellig.length,'Kontrollen fällig',"zuFaellig()")}
     ${kpi(mdNeu()?'warn':'ok',mdNeu(),'Neue Meldungen',"go('meldungen',{f:'offen'})")}
     ${kpi(instrUeb()?'crit':'ok',instrUeb(),'Instruktionen überfällig',"go('instruktion')")}
-    ${kpi('acc',offen.length,'Kontrollen nicht abgeschlossen',"go('kontrollen')")}
+    ${rolle()==='Polier'?'':kpi('acc',offen.length,'Kontrollen nicht abgeschlossen',"go('kontrollen')")}
   </div>
   ${backupAlt()?`<div class="card mb" style="border-left:4px solid var(--warn)"><div class="row sp"><div><b>Sicherung fällig</b><div class="small muted">${offeneAenderungen()} Änderungen seit dem letzten Export · zuletzt ${(DB.cfg||{}).letztesBackup?fmtDT(DB.cfg.letztesBackup):'noch nie'} gesichert. Die Daten liegen nur auf diesem Gerät.</div></div><button class="btn p" onclick="exportUebergabe()">Jetzt sichern</button></div></div>`:''}
   <div class="grid g3">
     ${kachel('Rundgang',['Bauführer','SiBe / Bauleitung'],'primary',`go('neu',{art:'Rundgang'})`,'Rundgang starten',`Bauführer · wöchentlich · ${n('Rundgang')} Punkte, geführt in Schritten – mit Vorbereitung und offenen Punkten`)}
-    ${kachel('Tagescheck',['Polier','Bauführer','SiBe / Bauleitung'],rolle()==='Polier'?'primary':'',`go('neu',{art:'Tagescheck'})`,'Tagescheck',`Polier · täglich · ${n('Tagescheck')} Punkte in einer Liste · 5–10 Min.`)}
+    ${kachel('Wochencheck',['Polier','Bauführer','SiBe / Bauleitung'],rolle()==='Polier'?'primary':'',`go('neu',{art:'Wochencheck'})`,'Wochencheck',`Polier · wöchentlich · ${n('Wochencheck')} Punkte zum Durchklicken · 15–20 Min.`)}
+    ${kachel('Tagescheck',['Polier','Bauführer','SiBe / Bauleitung'],'',`go('neu',{art:'Tagescheck'})`,'Abfahrtskontrolle Maschinen',`Tagescheck · vor Arbeitsbeginn · Maschinen im Einsatz plus ${n('Tagescheck')} Kurzpunkte`)}
+    ${rolle()==='Polier'&&meineBaustelle()?kachel('MeineBS',['Polier'],'',`go('meinebs')`,'Meine Baustelle',`${esc(bs(meineBaustelle()).name)} · Personen, Maschinen, SiGe-Konzept`):''}
     ${kachel('Audit',['SiBe / Bauleitung'],'',`go('neu',{art:'Audit Tiefbau'})`,'Audit Tiefbau',`SiBe · periodisch · ${n('Audit Tiefbau')} Punkte, Schwerpunkte wählbar`)}
     ${kachel('Geraet',['Polier','Bauführer','SiBe / Bauleitung'],'',`go('neu',{art:'Geraetepruefung'})`,'Geräteprüfung',`Maschine und Bediener wählen · ${MTYPEN.length} Gerätetypen`)}
     ${kachel('Ereignis',['Polier','Bauführer','SiBe / Bauleitung'],'',`go('ereignis')`,'Ereignis melden','Unfall, Beinaheunfall, gefährliche Situation')}
@@ -5898,6 +6112,7 @@ S.neu=()=>{
     ${themen.length?`<div class="f full"><span class="small" style="font-weight:600;color:var(--ink2)">Schwerpunkte heute (leer = alle ${themen.length} Themen)</span><div class="row" id="f_themen">${themen.map(g=>`<label class="chk"><input type="checkbox" value="${esc(g)}"> ${esc(g)}</label>`).join('')}</div></div>`:''}
     ${art==='Rundgang'?`<div class="f full"><span class="small" style="font-weight:600;color:var(--ink2)">Umfang</span><div class="row" id="f_umfang"><label class="chk"><input type="radio" name="f_umf" value="kompakt" onchange="umfInfo()" checked> Kompakt – 40 Punkte entlang der 10 lebenswichtigen Regeln (20–30 Min.)</label><label class="chk"><input type="radio" name="f_umf" value="voll" onchange="umfInfo()"> Ausführlich – zusätzlich jede Maschine, jedes Gerät und die Anschlagmittel dieser Baustelle</label></div><div class="small muted" id="umfHint"></div></div>`:''}
     ${(art==='Rundgang'||art==='Audit Tiefbau')?`<div class="f full"><span class="small" style="font-weight:600;color:var(--ink2)">Ablauf</span><div class="row"><label class="chk"><input type="radio" name="f_mode" value="steps" checked> Schritt für Schritt (empfohlen – mit Vorbereitung, Führung und Bereichsnotiz)</label><label class="chk"><input type="radio" name="f_mode" value="list"> Gesamtliste</label></div></div>`:''}
+    ${art==='Wochencheck'?`<div class="f full"><span class="small" style="font-weight:600;color:var(--ink2)">Ablauf</span><div class="row"><label class="chk"><input type="radio" name="f_mode" value="list" checked> Eine Liste – alle ${STAMM.pruefpunkte.filter(p=>p.Typ==='Wochencheck').length} Punkte untereinander (empfohlen)</label><label class="chk"><input type="radio" name="f_mode" value="steps"> Schritt für Schritt entlang der 10 Regeln</label></div><div class="small muted">Bei jedem Mangel zeigt das Programm, warum er gefährlich ist, ein Bild des Sollzustands und die häufigsten Massnahmen. Die tägliche Abfahrtskontrolle der Maschinen läuft weiter über den Tagescheck.</div></div>`:''}
     ${art==='Tagescheck'?`<div class="f full"><span class="small" style="font-weight:600;color:var(--ink2)">Maschinen heute im Einsatz – Abfahrtskontrolle mitprüfen</span>
     <div class="row" id="f_masch">${DB.maschinen.filter(mm=>mm.baustelle===(route.bs||(akt[0]||{}).id)).map(mm=>`<label class="chk"><input type="checkbox" class="m_sel" value="${mm.id}"> ${esc(mm.name)} · ${esc(mm.inv)}</label>`).join('')||'<span class="small muted">Auf dieser Baustelle ist noch keine Maschine erfasst – unter «Maschinen/Geräte» anlegen.</span>'}</div>
     <div class="small muted">Je gewählte Maschine kommen die vier wichtigsten Punkte dazu (Zustand, Schutzeinrichtungen, Bremsen, Bediener). Die vollständige Prüfung läuft über «Geräteprüfung».</div></div>
@@ -6061,6 +6276,7 @@ function ppCard(p,ro,k){
       <div class="meta"><span class="pill n">${esc(p.objektgruppe)}</span>${p.regel?`<span class="pill b">Regel ${p.regel}</span>`:''}<span class="pill ${p.prioStd==='Kritisch'?'r':p.prioStd==='Hoch'?'o':'y'}">Std. ${esc(p.prioStd)}</span>${p.stoppVorschlag==='Ja'?'<span class="pill r">Arbeitsstopp-Vorschlag</span>':''}<span class="pill n">STOP: ${esc(p.stopArt)}</span>${wdh?`<span class="pill o">Wiederholung: ${wdh}× auf dieser Baustelle</span>`:''}</div></div>
     ${mangel?`<div class="detail">
       ${krit?`<div class="stop mb">${p.arbeitsstopp==='Ja'?'ARBEITSSTOPP – Arbeiten sofort einstellen, Bereich sichern, melden. Wiederaufnahme nur nach dokumentierter Freigabe.':'Kritischer Mangel – Arbeitsstopp prüfen.'}</div>`:''}
+      ${begruendungKarte(p,ro)}
       <div class="fotoreihe">${ro?'':`<label class="btn p">📷 Foto aufnehmen<input type="file" accept="image/*" capture="environment" hidden onchange="addFoto('${p.id}',this)"></label>`}
         <span class="small muted">${krit?'Foto ist Pflicht.':'Ein Foto sagt mehr als drei Sätze.'}</span></div>
       <div class="photos">${(p.fotos||[]).map((f,i)=>`<div class="ph"><img src="${f}" alt="Foto ${i+1}">${ro?'':`<button onclick="delFoto('${p.id}',${i})">×</button>`}</div>`).join('')}</div>
@@ -6179,7 +6395,7 @@ S.bericht=()=>{
     ${stops.length?`<div class="stopbox">ARBEITSSTOPP (${stops.length}): ${stops.map(p=>esc(p.objekt)).join(' · ')}</div>`:''}
     ${e?`<h2>Ereignis</h2><div class="kv"><div><span>Art</span>${esc(e.schwere)}</div><div><span>Betroffene</span>${esc(e.personen||'–')}</div><div><span>Regel</span>${e.regel?e.regel+' – '+esc(REG[String(e.regel)]):'–'}</div><div><span>Ursachen</span>${esc(e.ursachen.join(', ')||'–')}</div><div><span>Suva-Meldung</span>${esc(e.suva)}</div></div><p><b>Hergang:</b> ${esc(e.hergang)}</p><p><b>Sofortmassnahme:</b> ${esc(e.sofort)}</p><p><b>Massnahme gegen Wiederholung:</b> ${esc(e.massnahme||'–')} · Zuständig ${esc(e.zust||k.pruefer)} · Priorität ${esc(e.prio)} · Termin ${fmtD(fristFuer(e.prio))}</p>${e.fotos.map(f=>`<img class="p" src="${f}" alt="">`).join('')}`:''}
     ${k.fazit?`<h2>Kurzfazit</h2><p>${esc(k.fazit)}</p>`:''}
-    ${!e&&(k.art==='Tagescheck'||k.art==='Rundgang')?`<h2>Bereichsbewertung${k.umfang==='voll'?' – Regeln, Maschinen und Anschlagmittel':' entlang der 10 lebenswichtigen Regeln'}</h2><table><thead><tr><th style="width:28px"></th><th>Bereich</th><th>Geprüft</th><th>Mängel</th><th>Bewertung</th><th>Beurteilung / besprochen mit</th></tr></thead><tbody>${gs.map(g=>{const br=k.bereich[g.key]||{};return `<tr><td><span class="a ${ampelGruppe(g.punkte)}"></span></td><td>${esc(g.titel)}</td><td>${g.punkte.filter(p=>p.status!=='Nicht geprüft').length}/${g.punkte.length}</td><td>${g.punkte.filter(p=>p.status==='Mangel').length}</td><td>${esc(br.note||'–')}</td><td>${esc(br.text||'')}${br.mit?` <small>(mit ${esc(br.mit)})</small>`:''}</td></tr>`;}).join('')}</tbody></table>`:''}
+    ${!e&&istRegelGruppiert(k)?`<h2>Bereichsbewertung${k.umfang==='voll'?' – Regeln, Maschinen und Anschlagmittel':' entlang der 10 lebenswichtigen Regeln'}</h2><table><thead><tr><th style="width:28px"></th><th>Bereich</th><th>Geprüft</th><th>Mängel</th><th>Bewertung</th><th>Beurteilung / besprochen mit</th></tr></thead><tbody>${gs.map(g=>{const br=k.bereich[g.key]||{};return `<tr><td><span class="a ${ampelGruppe(g.punkte)}"></span></td><td>${esc(g.titel)}</td><td>${g.punkte.filter(p=>p.status!=='Nicht geprüft').length}/${g.punkte.length}</td><td>${g.punkte.filter(p=>p.status==='Mangel').length}</td><td>${esc(br.note||'–')}</td><td>${esc(br.text||'')}${br.mit?` <small>(mit ${esc(br.mit)})</small>`:''}</td></tr>`;}).join('')}</tbody></table>`:''}
     ${e?'':`<h2>Mängel und Massnahmen</h2>
     ${mg.length?`<table><thead><tr><th>Ampel</th><th>Objekt / Regel</th><th>Mangel</th><th>Massnahme / Sofortmassnahme</th><th>Prio</th><th>Stopp</th><th>Zuständig</th><th>Termin</th><th>WK</th></tr></thead><tbody>${mg.map(p=>`<tr><td><span class="a ${ampel(p)}"></span>${ampel(p)}</td><td><b>${esc(p.objekt)}</b><br><small>${esc(p.objektgruppe)}${p.regel?' · Regel '+p.regel:''}<br>${esc(p.recht||'')}</small></td><td>${esc(p.mangel)}${p.betroffene?`<br><small>Betroffene: ${esc(p.betroffene)}</small>`:''}</td><td>${esc(p.massnahme)}${p.sofort?`<br><b>Sofort:</b> ${esc(p.sofort)}`:''}${p.stoppBegruendung?`<br><small>Kein Stopp, weil: ${esc(p.stoppBegruendung)}</small>`:''}<br><small>STOP: ${esc(p.stopArt)}</small></td><td>${esc(p.prio)}</td><td>${esc(p.arbeitsstopp)}${p.freigabe?`<br><small>Freigabe: ${esc(p.freigabe)}</small>`:''}${p.arbeitsstopp==='Ja'?`<br><small>${stoppDauer(p)}</small>`:''}</td><td>${esc(p.zustaendig)}</td><td>${fmtD(p.termin)}</td><td>${esc(p.nk)}</td></tr>${p.fotos&&p.fotos.length?`<tr><td colspan="9">${p.fotos.map(f=>`<img class="p" src="${f}" alt="">`).join('')}</td></tr>`:''}`).join('')}</tbody></table>`:'<p>Keine Mängel festgestellt.</p>'}
     ${vb.length?`<h2>Positivbefunde</h2><ul>${vb.map(p=>`<li><b>${esc(p.objekt)}</b>${p.bem?' – '+esc(p.bem):''}</li>`).join('')}</ul>`:''}
@@ -6261,7 +6477,7 @@ function formM(id){const m=DB.maschinen.find(x=>x.id===id)||{name:'',inv:'',typ:
 function saveM(id){const o={};['name','inv','typ','hersteller','baustelle','betreiber','wartung','naechste','zustand','bem'].forEach(k=>o[k]=document.getElementById('m_'+k).value);if(!o.name){toast('Name fehlt');return;}if(id)Object.assign(DB.maschinen.find(x=>x.id===id),o);else DB.maschinen.push({id:uid(),...o});save();delete route.edit;render();}
 
 S.baustellen=()=>`<div class="head"><div><h1>Baustellen</h1><p>Mit SiGe-Konzept (Art. 4 BauAV), Subunternehmern und Suva-Meldungen</p></div><button class="btn p" onclick="editB('')">＋ Neu</button></div>
-  <div class="list">${DB.baustellen.map(b=>{const n=DB.kontrollen.filter(k=>k.baustelle===b.id).length;const o=DB.massnahmen.filter(m=>m.baustelle===b.id&&m.status!=='Erledigt').length;const sige=(b.sige||{}).datum;return `<button class="item" onclick="editB('${b.id}')"><span class="pill ${b.status==='Aktiv'?'g':'n'}">${esc(b.status)}</span><span><div class="ti">${esc(b.name)} · ${esc(b.nr)}</div><div class="su">${esc(b.ort)} · Bauleiter ${esc(b.bauleiter||'–')} · Polier ${esc(b.polier||'–')} · ${n} Kontrollen · ${o} offene Massnahmen · ${sige?'SiGe-Konzept '+fmtD(sige):'<b class="crit-c">SiGe-Konzept fehlt</b>'} · ${DB.subs.filter(s=>s.baustelle===b.id).length} Subunternehmer</div></span><span class="ch">›</span></button>`;}).join('')}</div>
+  <div class="list">${DB.baustellen.map(b=>{const n=DB.kontrollen.filter(k=>k.baustelle===b.id).length;const o=DB.massnahmen.filter(m=>m.baustelle===b.id&&m.status!=='Erledigt').length;const sige=(b.sige||{}).datum;return `<button class="item" onclick="editB('${b.id}')"><span class="pill ${b.status==='Aktiv'?'g':'n'}">${esc(b.status)}</span><span><div class="ti">${esc(b.name)} · ${esc(b.nr)}</div><div class="su">${esc(b.ort)} · Bauleiter ${esc(b.bauleiter||'–')} · Polier ${esc(b.polier||'–')} · ${n} Kontrollen · ${o} offene Massnahmen · ${sige?'SiGe-Konzept '+fmtD(sige):'<b class="crit-c">SiGe-Konzept fehlt</b>'} · ${DB.subs.filter(s=>s.baustelle===b.id).length} Subunternehmer · ${bereitKurz(b)}</div></span><span class="ch">›</span></button>`;}).join('')}</div>
   ${route.edit!==undefined?formB(route.edit):''}`;
 function editB(id){route.edit=id;render();setTimeout(()=>{const e=document.getElementById('fb');if(e)e.scrollIntoView({behavior:'smooth'});},50);}
 function formB(id){const b=DB.baustellen.find(x=>x.id===id)||{name:'',nr:'',ort:'',bauleiter:'',polier:'',status:'Aktiv',start:'',ende:'',bem:'',sige:{},charta:'Ja',meldung:'',meldungArt:''};const s=b.sige||{};const f=(k,l,t='text')=>`<label class="f"><span>${l}</span><input id="b_${k}" type="${t}" value="${esc(b[k]||'')}"></label>`;
@@ -6271,7 +6487,7 @@ function formB(id){const b=DB.baustellen.find(x=>x.id===id)||{name:'',nr:'',ort:
   <label class="f"><span>Sicherheits-Charta unterzeichnet</span><select id="b_charta"><option ${b.charta==='Ja'?'selected':''}>Ja</option><option ${b.charta==='Nein'?'selected':''}>Nein</option></select></label><label class="f"><span>Meldepflichtige Arbeiten (Suva, 14 Tage vorher)</span><select id="b_meldungArt"><option value="">keine</option>${['Asbestsanierung','Untertagarbeiten','Gesteinsabbau','Andere'].map(x=>`<option ${b.meldungArt===x?'selected':''}>${x}</option>`).join('')}</select></label><label class="f"><span>Meldung erfolgt am</span><input id="b_meldung" type="date" value="${esc(b.meldung||'')}"></label></div>
   ${id?`<h3 class="mt">Subunternehmer auf dieser Baustelle</h3><div class="tw"><table class="tb"><thead><tr><th>Firma</th><th>Ansprechperson</th><th>Gewerk</th><th>Instruiert am</th><th>durch</th><th></th></tr></thead><tbody>${subs.map(x=>`<tr><td>${esc(x.firma)}</td><td>${esc(x.kontakt)}</td><td>${esc(x.gewerk)}</td><td class="${x.instr?'':'crit-c'}">${x.instr?fmtD(x.instr):'nicht instruiert'}</td><td>${esc(x.durch)}</td><td><button class="btn sm ghost" onclick="DB.subs=DB.subs.filter(y=>y.id!=='${x.id}');save();render()">×</button></td></tr>`).join('')||'<tr><td colspan="6" class="muted">Noch keine Subunternehmer erfasst.</td></tr>'}</tbody></table></div>
   <div class="form mt"><label class="f"><span>Firma</span><input id="sub_firma"></label><label class="f"><span>Ansprechperson / Tel.</span><input id="sub_kontakt"></label><label class="f"><span>Gewerk</span><input id="sub_gewerk"></label><label class="f"><span>Instruiert am</span><input id="sub_instr" type="date"></label><label class="f"><span>Instruiert durch</span><input id="sub_durch"></label></div><button class="btn sm mt" onclick="addSub('${id}')">Subunternehmer hinzufügen</button>`:''}
-  <div class="row mt"><button class="btn p" onclick="saveB('${id}')">Speichern</button><button class="btn ghost" onclick="delete route.edit;render()">Abbrechen</button>${id?`<button class="btn ghost crit-c" onclick="delBaustelle('${id}')">Baustelle löschen</button>`:''}</div></div>`;}
+  <div class="row mt"><button class="btn p" onclick="saveB('${id}')">Speichern</button>${id?`<button class="btn" onclick="paketFuerPolier('${id}')">Paket für Polier speichern</button>`:''}<button class="btn ghost" onclick="delete route.edit;render()">Abbrechen</button>${id?`<button class="btn ghost crit-c" onclick="delBaustelle('${id}')">Baustelle löschen</button>`:''}</div></div>`;}
 function addSub(bid){const g=i=>document.getElementById(i).value;if(!g('sub_firma')){toast('Firma fehlt');return;}DB.subs.push({id:uid(),baustelle:bid,firma:g('sub_firma'),kontakt:g('sub_kontakt'),gewerk:g('sub_gewerk'),instr:g('sub_instr'),durch:g('sub_durch')});save();render();}
 function saveB(id){const o={};['name','nr','ort','sparte','bauleiter','polier','status','start','ende','bem','charta','meldung','meldungArt'].forEach(k=>o[k]=document.getElementById('b_'+k).value);if(!o.name){toast('Name fehlt');return;}
   const b=id?DB.baustellen.find(x=>x.id===id):{id:uid(),sige:{}};Object.assign(b,o);b.sige=b.sige||{};b.sige.datum=document.getElementById('s_datum').value;b.sige.von=document.getElementById('s_von').value;b.sige.instruiert=document.getElementById('s_instr').value;b.sige.link=document.getElementById('s_link').value;
@@ -6342,7 +6558,7 @@ function demoLaden(){
   const dt=(n,h)=>d(n)+'T'+String(h).padStart(2,'0')+':'+(n%2?'15':'40');const iso=(n,h)=>new Date(d(n)+'T'+String(h).padStart(2,'0')+':30:00').toISOString();
   const b={id:uid(),name:'Werkleitungssanierung Bahnhofstrasse Etappe 2',nr:'DEMO-2026-031',ort:'Wetzikon ZH',bauleiter:'Fischer Daniel',polier:'Meier Urs',status:'Aktiv',start:d(-45),ende:d(120),bem:'Demo-Baustelle (fiktiv): Ersatz Wasser/Gas DN200 auf 380 m, offener Graben 1.8–2.6 m, Verkehrsführung einspurig mit Lichtsignal, Nachtarbeit bei Querungen. Alle Angaben frei erfunden – vor Gebrauch anpassen.',sige:{datum:d(-50),von:'Fischer Daniel / SiBe Vogel',instruiert:d(-44),link:'SharePoint › Baustellen › 2026-031 › 01_SiGe-Konzept_v2.pdf'},charta:'Ja',meldungArt:'',meldung:''};
   DB.baustellen.push(b);
-  const P=(name,funktion,firma,instr10,aus,bem)=>{const p={id:uid(),name,funktion,firma,instr10,instr10durch:'Vogel Tobias (SiBe)',sige:instr10?d(-44):'',ausweise:aus,mail:'',instr:{},ausweisBis:{},bem:bem||''};
+  const P=(name,funktion,firma,instr10,aus,bem)=>{const p={id:uid(),baustelle:b.id,name,funktion,firma,instr10,instr10durch:'Vogel Tobias (SiBe)',sige:instr10?d(-44):'',ausweise:aus,mail:'',instr:{},ausweisBis:{},bem:bem||''};
     if(instr10&&instr10.trim()){p.instr[THEMEN[0]]=instr10;p.instr[THEMEN[1]]=d(-44);p.instr['Notfallorganisation / Erste Hilfe']=d(-44);}
     DB.personen.push(p);return p;};
   const pMeier=P('Meier Urs','Polier/in','',d(-44),['Baumaschinenführer (Bagger/Lader)','Erste Hilfe / Nothelfer','Signalisation / Verkehrsregelung'],'');
@@ -6746,12 +6962,13 @@ function importMerge(inp){const f=inp.files[0];if(!f)return;inp.value='';
   f.text().then(t=>{const d=JSON.parse(t);if(!d.kontrollen)throw 0;
     SYNCSETS.forEach(k=>d[k]=d[k]||[]);
     const rep=mergePlan(d);
-    const txt=`Abgleich mit «${(d.geraet||{}).name||'unbekanntes Gerät'}» (Stand ${d.exportiert?fmtDT(d.exportiert):'unbekannt'}):\n\n`+
+    const pk=d.paket?`Baustellen-Paket «${esc(((d.baustellen||[])[0]||{}).name||'')}» für den Polier. Dieses Gerät wird danach auf die Ansicht Polier und diese Baustelle eingestellt.\n\n`:'';
+    const txt=pk+`Abgleich mit «${(d.geraet||{}).name||'unbekanntes Gerät'}» (Stand ${d.exportiert?fmtDT(d.exportiert):'unbekannt'}):\n\n`+
       `${rep.neu} neue Datensätze werden übernommen\n${rep.akt} Datensätze sind dort neuer und werden aktualisiert\n${rep.behalten} sind hier neuer und bleiben unverändert\n${rep.gleich} sind identisch\n\n`+
       rep.det.map(x=>`· ${x.key}: ${x.n} neu, ${x.a} aktualisiert, ${x.b} behalten`).join('\n')+
       '';
     dlg({titel:'Daten zusammenführen?',text:txt,ok:'Abgleich durchführen'}).then(j=>{if(!j)return;
-    mergeApply(d);snapSig();save();
+    mergeApply(d);if(d.paket){DB.cfg=DB.cfg||{};DB.cfg.rolle='Polier';DB.cfg.letztesBackup=new Date().toISOString();DB.cfg.meineBaustelle=d.paket.baustelle;if(d.paket.polier&&!localStorage.getItem('sademo_user'))localStorage.setItem('sademo_user',d.paket.polier);}snapSig();save();
     DB.cfg.letzterAbgleich={geraet:(d.geraet||{}).name||'?',am:new Date().toISOString(),neu:rep.neu,akt:rep.akt};save();
     render();toast(`Abgleich fertig: ${rep.neu} neu, ${rep.akt} aktualisiert.`);});
   }).catch(()=>toast('Datei ungültig oder kein Backup dieses Programms.'));}
@@ -6784,7 +7001,7 @@ S.einstellungen2=()=>{
 
   <div class="card"><h3>Ansicht für diese Person</h3><p class="small muted">Bestimmt, welche Menüpunkte und Kacheln erscheinen. Die Daten sind immer dieselben.</p>
   <div class="rollen mt">${ROLLEN.map(r=>`<button class="${rolle()===r?'on':''}" onclick="setRolle('${r}')">${r}</button>`).join('')}</div>
-  <p class="small muted mt">Polier: Tagescheck, Geräteprüfung, Ereignis, Meldungen, eigene Punkte. Bauführer: zusätzlich Rundgang, Personen und Instruktionen. SiBe: alles inklusive Audit und Systemaudit.</p></div>
+  <p class="small muted mt">Polier: Wochencheck, Abfahrtskontrolle (Tagescheck), Geräteprüfung, Ereignis, Meldungen, eigene Punkte und die vorbereitete Baustelle zum Nachschauen, ohne Stammdaten. Bauführer: zusätzlich Rundgang, Personen und Instruktionen. SiBe: alles inklusive Audit und Systemaudit.</p></div>
 
   <div class="card"><h3>Dieses Gerät</h3><p class="small muted">Jedes iPad oder Notebook bekommt einen Namen. Er steht in jedem geänderten Datensatz und entscheidet beim Abgleich, welche Version die neuere ist.</p><div class="form mt">
     <label class="f"><span>Gerätename</span><input value="${esc(DB.geraet.name)}" onchange="setGeraet(this.value)"></label>
@@ -6972,7 +7189,7 @@ async function pdfKontrolle(id,mitAnhang){
     d.text('Massnahme gegen Wiederholung: '+(e.massnahme||'–')+' · Priorität '+e.prio+' · Termin '+fmtD(fristFuer(e.prio)),{nach:4});
     if(e.fotos&&e.fotos.length)d.bildReihe(e.fotos,120);}
   if(k.fazit){d.titel('Kurzfazit');d.text(k.fazit);}
-  if(!e&&(k.art==='Tagescheck'||k.art==='Rundgang')){
+  if(!e&&istRegelGruppiert(k)){
     d.titel('Bereichsbewertung'+(k.umfang==='voll'?' – Regeln, Maschinen und Anschlagmittel':' entlang der 10 lebenswichtigen Regeln'));
     d.tabelle(['Ampel','Bereich','Geprüft','Mängel','Bewertung','Beurteilung / besprochen mit'],
       gs.map(g=>{const br=k.bereich[g.key]||{};
