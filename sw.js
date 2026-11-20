@@ -1,9 +1,10 @@
 /* Sicherheitsaudit Tiefbau - Offline-Zwischenspeicher.
    Beim Veroeffentlichen einer neuen Version die Zahl erhoehen. */
-const VERSION = 'sademo-v4';
+const VERSION = 'sademo-v5';
 const PREFIX = 'sademo-'; /* nur eigene Zwischenspeicher loeschen, nie die der Live-Fassung */
 const DATEIEN = ['./', './index.html', './manifest.json',
-  './icon180.png', './icon192.png', './icon512.png', './icon512-maskable.png'];
+  './icon180.png', './icon192.png', './icon512.png', './icon512-maskable.png',
+  './pdfjs/pdf.min.js', './pdfjs/pdf.worker.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
