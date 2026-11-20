@@ -1,6 +1,6 @@
 /* Sicherheitsaudit Tiefbau - Offline-Zwischenspeicher.
    Beim Veroeffentlichen einer neuen Version die Zahl erhoehen. */
-const VERSION = 'sademo-v9';
+const VERSION = 'sademo-v10';
 const PREFIX = 'sademo-'; /* nur eigene Zwischenspeicher loeschen, nie die der Live-Fassung */
 const DATEIEN = ['./', './index.html', './manifest.json',
   './icon180.png', './icon192.png', './icon512.png', './icon512-maskable.png',
@@ -16,7 +16,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request).then(a => {
+    (new URL(e.request.url).origin === location.origin ? fetch(e.request.url, {cache: 'no-cache', credentials: 'same-origin'}) : fetch(e.request)).then(a => {
       const kopie = a.clone();
       caches.open(VERSION).then(c => c.put(e.request, kopie)).catch(() => {});
       return a;

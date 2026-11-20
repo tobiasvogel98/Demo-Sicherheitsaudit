@@ -264,7 +264,7 @@ details.bereich[open] summary::before{content:'▾ '}
 </head>
 <body>
 <div class="app">
-  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand sademo-v9</div></aside>
+  <aside class="side"><div class="brand">Sicherheitsaudit<small>Grossbaustelle Tiefbau</small></div><nav class="nav" id="nav"></nav><div style="margin-top:auto" class="small muted">Prototyp · Daten lokal auf diesem Gerät<br>Demo-Stand <span id="appstand">sademo-v10</span></div></aside>
   <div><div class="topbar" id="topnav"></div><main class="main" id="main"></main></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -5718,7 +5718,7 @@ const PDFDoc=(function(){
 
 
 /* Sicherheitsaudit Tiefbau – iPad-Prototyp v2. Daten lokal im Gerät (localStorage). */
-const KEY='sademo_audit_v2'; /* Demo: eigener Speicher, getrennt von der Live-Fassung auf derselben Domain */
+const APPSTAND='sademo-v10';const KEY='sademo_audit_v2'; /* Demo: eigener Speicher, getrennt von der Live-Fassung auf derselben Domain */
 const ARTEN={Tagescheck:'Tagescheck (Polier)',Rundgang:'Rundgang (Bauführer)','Audit Tiefbau':'Audit Tiefbau (SiBe)',Geraetepruefung:'Geräteprüfung',Ereignis:'Ereignis / Beinaheunfall',Meldung:'Meldung (QR / Mitarbeitende)',Systemaudit:'Systemaudit (ASA)'};
 const ARTK={Tagescheck:'Tagescheck',Rundgang:'Rundgang','Audit Tiefbau':'Audit',Geraetepruefung:'Geräteprüfung',Ereignis:'Ereignis',Meldung:'Meldung',Systemaudit:'Systemaudit'};
 const ROLLEN=['Polier','Bauführer','SiBe / Bauleitung'];
@@ -6151,7 +6151,7 @@ function formNotfall(id){const b=DB.baustellen.find(x=>x.id===id);if(!b)return '
   const f=(key,l,ph,full)=>`<label class="f${full?' full':''}"><span>${l}</span><input id="nf_${key}" value="${esc(n[key]||'')}" placeholder="${esc(ph||'')}"></label>`;
   const bild=(nr,titel,hilfe)=>`<div class="f full kdrop" ondragover="event.preventDefault();this.classList.add('ueber')" ondragleave="this.classList.remove('ueber')" ondrop="nfDrop('${id}',${nr},event,this)"><span class="small" style="font-weight:600;color:var(--ink2)">${titel}</span><div class="small muted">${hilfe}</div>
     ${n['kroki'+nr]?`<img src="${n['kroki'+nr]}" alt="${titel}" style="max-width:100%;max-height:260px;border:1px solid var(--line);border-radius:8px;margin:6px 0">`:''}
-    <div class="row"><label class="btn sm">${n['kroki'+nr]?'Bild ersetzen':'Bild wählen'}<input type="file" hidden onchange="nfBild('${id}',${nr},this)"></label>${n['kroki'+nr]?`<button class="btn sm ghost crit-c" onclick="nfBildWeg('${id}',${nr})">Entfernen</button>`:''}</div></div>`;
+    <div class="small" id="nfst${nr}" style="color:var(--ink2)"></div><div class="row"><label class="btn sm">${n['kroki'+nr]?'Datei ersetzen':'Datei wählen'}<input type="file" hidden onchange="nfBild('${id}',${nr},this)"></label>${n['kroki'+nr]?`<button class="btn sm ghost crit-c" onclick="nfBildWeg('${id}',${nr})">Entfernen</button>`:''}</div></div>`;
   return `<div class="card mt" id="fnf"><div class="row sp"><h3>Notfallblatt mit Kroki</h3><span class="pill ${nfFertig(b)?'g':'o'}">${nfFertig(b)?'vollständig':'unvollständig'}</span></div>
   <p class="small muted">Einmal erfassen, ein Dokument: oben die Notfall-Liste, darunter das Kroki der Baustelle und auf Seite 2 die Umgebung mit Arzt und Spital. Auftragsnr., Objekt, Ort und Bauführer kommen aus der Baustelle.</p>
   <div class="form mt">${f('strasse','Strasse','Oberzelgstrasse')}${f('plz','PLZ','5612')}${f('such','Suchkriterium','z. B. Oberzelg Etappe 1')}
@@ -6259,7 +6259,11 @@ function krokiDialog(quellen,titel){return new Promise(fertig=>{
       ox.drawImage(src,r.x,r.y,r.w,r.h,0,0,o.width,o.height);zu({url:o.toDataURL('image/jpeg',.8),w:o.width,h:o.height});};};
   if(quellen.length===1)schneiden(quellen[0].canvas);else wahl();});}
 function nfDrop(id,nr,e,el){e.preventDefault();el.classList.remove('ueber');const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(!f){toast('Keine Datei erkannt. Datei aus der App «Dateien» hierher ziehen.');return;}nfBildDatei(id,nr,f);}
-async function nfBild(id,nr,inp){const f=inp.files[0];inp.value='';if(!f)return;nfBildDatei(id,nr,f);}
+async function nfBild(id,nr,inp){const f=inp.files&&inp.files[0];
+  const st=document.getElementById('nfst'+nr);if(st)st.textContent=f?('Gewählt: '+f.name+' · '+Math.round(f.size/1024)+' KB · '+(f.type||'ohne Typ')+' – wird gelesen …'):'Keine Datei erhalten.';
+  if(!f){toast('Das iPad hat keine Datei übergeben.');return;}
+  try{await nfBildDatei(id,nr,f);}catch(e){dlg({titel:'Kroki nicht lesbar',text:'Fehler: '+((e&&e.message)||e),ok:'OK',abbrechen:'Schliessen'});}
+  try{inp.value='';}catch(e){}}
 async function nfBildDatei(id,nr,f){const b=nfLesen(id);
   toast('Datei wird gelesen …');let q;try{q=await krokiQuellen(f);}catch(e){dlg({titel:'Kroki nicht lesbar',text:(e&&e.message)||'Unbekannter Fehler',ok:'OK',abbrechen:'Schliessen'});return;}
   const r=await krokiDialog(q,nr===1?'Kroki Baustelle':'Kroki Umgebung');if(!r)return;
@@ -7867,7 +7871,10 @@ async function pdfBerichtFragen(id){
 </body></html>
 <script>
 if('serviceWorker' in navigator&&location.protocol==='https:'){
-  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{
+      r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{});});}).catch(()=>{});
+    let neu=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(neu)return;neu=true;try{sessionStorage.setItem('sademo_neu','1');}catch(e){}location.reload();});
+    try{if(sessionStorage.getItem('sademo_neu')){sessionStorage.removeItem('sademo_neu');setTimeout(()=>toast('Neue Version geladen: '+APPSTAND),600);}}catch(e){}});
 }
 </script>
 </body>
