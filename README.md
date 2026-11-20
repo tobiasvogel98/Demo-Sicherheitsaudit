@@ -33,12 +33,19 @@ Pilotdaten nach dem Update scheinbar weg.
 * **Begründung am Mangel**: Warum gefährlich, Bild des Sollzustands (antippen für Text),
   häufigste Massnahmen zum Antippen. Seit 20.11. nachmittags je **Thema** statt je Regel:
   alle 328 Prüfpunkte (Wochencheck, Tagescheck, Rundgang, Audit, Geräteprüfung, Systemaudit)
-  sind einem von 41 Themen zugeordnet, angezeigt als «Betrifft: …».
+  sind einem von 40 Themen zugeordnet, angezeigt als «Betrifft: …».
 * **Notfallblatt mit Kroki**: Bauführer → Baustellen → Baustelle öffnen → Abschnitt
   «Notfallblatt mit Kroki». Einmal erfassen (Koordinaten LV95 oder WGS84, Arzt, Spital,
   Sammelplatz, zwei Kartenbilder), ein PDF: Seite 1 Notfall-Liste mit Kroki der Baustelle
   und QR-Code zum Standort, Seite 2 Umgebung mit QR-Code zur Route ins Spital.
-  Der Polier sieht es unter «Meine Baustelle».
+  Der Polier sieht es unter «Meine Baustelle». Kroki lässt sich aus Bild, PDF oder
+  Word-Datei (.docx) einlesen, Seite wählen, Ausschnitt mit dem Finger einrahmen
+  (PDF-Leser pdf.js 3.11, Apache 2.0, liegt in `pdfjs/` und läuft offline).
+* **Erstanweisung neue Person** (Instruktionen): Checkliste mit 10 Punkten, Unterschrift der
+  Person und des Instruierenden, trägt die Instruktionen in der Personenliste nach, PDF.
+* **10-Minuten-Schulung** (Instruktionen): Thema aus den 40 Themen mit Leitfaden und Sollbild,
+  danach unterschreiben alle nacheinander auf dem iPad, Abwesende werden vermerkt, PDF mit
+  Unterschriften. Auch die bisherige Instruktion sammelt jetzt die Unterschriften auf dem iPad.
 * **Baustellen-Paket**: Bauführer → Baustellen → Baustelle öffnen → «Paket für Polier speichern».
   Polier → Daten / Geräte → «Daten zusammenführen». Das Gerät stellt sich auf Polier und
   diese Baustelle ein.
@@ -73,7 +80,7 @@ Auf Android: Chrome öffnen → Menü → **App installieren**.
 
 ## Neue Version veröffentlichen
 
-1. In `sw.js` die Zeile `const VERSION = 'sademo-v4';` um eins erhöhen
+1. In `sw.js` die Zeile `const VERSION = 'sademo-v6';` um eins erhöhen
    (sonst zeigen bereits installierte Geräte weiter die alte Fassung)
 2. Beide Dateien (`index.html`, `sw.js`) im Repository ersetzen:
    Datei anklicken → Stift → Inhalt ersetzen → Commit.

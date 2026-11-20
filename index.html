@@ -5832,7 +5832,7 @@ function umfInfo(){const h=document.getElementById('umfHint');if(!h)return;const
   const nA=STAMM.pruefpunkte.filter(v=>v.Objektgruppe==='Anschlagmittel / Ketten / Schlingen').length;
   const r=STAMM.pruefpunkte.filter(p=>p.Typ==='Rundgang').length;const voll=(document.querySelector('input[name=f_umf]:checked')||{}).value==='voll';
   h.textContent=voll?`${ms.length} Maschine(n) auf dieser Baustelle · ${r} + ${nG} + ${nA} = ${r+nG+nA} Punkte, je Gerät ein eigener Schritt.`:`${r} Punkte in 11 Schritten.`;}
-function render(){renderNav();document.body.classList.toggle('gast',route.s==='melden'||route.s==='meldungDank');const m=document.getElementById('main');const fn=S[route.s]||S.start;m.innerHTML=fn();if(route.s==='abschluss')initSig();if(route.s==='neu')umfInfo();}
+function render(){renderNav();document.body.classList.toggle('gast',route.s==='melden'||route.s==='meldungDank');const m=document.getElementById('main');const fn=S[route.s]||S.start;m.innerHTML=fn();if(document.getElementById('sig'))initSig();if(route.s==='neu')umfInfo();}
 const DL=()=>`<datalist id="dlPers">${DB.personen.map(x=>`<option value="${esc(x.name)}">`).join('')}</datalist>`;
 
 /* ---------- Screens ---------- */
@@ -6276,6 +6276,127 @@ async function pdfNotfall(bid){const b=DB.baustellen.find(x=>x.id===bid);if(!b)r
   if(!n.kroki1&&!n.kroki2){d.abstand(6);d.text('Kein Kroki hinterlegt.',{size:9,farbe:'0.6 0.1 0.1'});}
   d.fuss('Notfallblatt · '+b.name+' · Stand '+fmtD(today())+' · gut sichtbar beim Baustellenbüro, im Container und in den Fahrzeugen aushängen.');
   await pdfSpeichern('Notfallblatt_'+(b.nr||b.name).replace(/[^\wäöüÄÖÜ-]+/g,'_')+'.pdf',d);}
+
+
+/* ===== Phase 3: Unterschriften auf dem iPad, 10-Minuten-Schulung, Erstanweisung ===== */
+const ERSTANW_PUNKTE=[
+ ['Vorgesetzter und Ansprechperson vorgestellt','Wer ist mein Polier, wen frage ich bei Unklarheiten?'],
+ ['10 lebenswichtige Regeln erklärt','Mit Merkblatt, in verständlicher Sprache'],
+ ['STOPP bei Gefahr','Arbeit einstellen, melden, erst nach Freigabe weiter. Niemand wird dafür getadelt.'],
+ ['Gefahren dieser Baustelle gezeigt','Graben, Verkehr, Maschinen, Leitungen, Absturzstellen, vor Ort gezeigt'],
+ ['SiGe-Konzept der Baustelle','Wichtigste Punkte, wo es aufliegt'],
+ ['Notfall','Notfallnummer 144, Notfallblatt, Sammelplatz, Nothelfer, Erste-Hilfe-Material gezeigt'],
+ ['PSA abgegeben und angepasst','Helm, Sicherheitsschuhe, Warnkleidung; je nach Arbeit Gehörschutz, Brille, Handschuhe'],
+ ['Maschinen nur mit Berechtigung','Keine Maschine ohne Ausweis und Auftrag bedienen'],
+ ['Melden von Gefahren und Beinaheunfällen','QR-Aushang, direkt beim Polier, ohne Nachteile'],
+ ['Ordnung, Pausen, Sanitär','Lagerplätze, Abfall, Aufenthalt, Toilette, Arbeitszeiten']];
+
+function kurzThemen(){return Object.entries(THEMA).map(([k,t])=>({k,t:t.t}));}
+function sigPruefen(){return sigDirty;}
+function sigBild(){const c=document.getElementById('sig');return c?c.toDataURL('image/png'):'';}
+function sigLeeren(){const c=document.getElementById('sig');if(!c)return;c.getContext('2d').clearRect(0,0,c.width,c.height);sigDirty=false;}
+
+/* Unterschriften einer Instruktion oder Kurzschulung einsammeln: eine Person nach der anderen */
+function teilnehmerListe(r){const ps=r.teilnehmer.map(id=>{const p=DB.personen.find(x=>x.id===id);return p?{id:p.id,name:p.name,funktion:p.funktion,firma:p.firma}:null;}).filter(Boolean);
+  return ps.concat((r.extra||[]).map((e,i)=>({id:'x'+i,name:e.name,funktion:e.funktion||'',firma:e.firma||'',extra:true})));}
+S.unterschrift=()=>{const r=(DB.instruktionen||[]).find(x=>x.id===route.id);if(!r)return S.instruktion();r.sig=r.sig||{};r.abwesend=r.abwesend||{};
+  const tl=teilnehmerListe(r);const offen=tl.filter(t=>!r.sig[t.id]&&!r.abwesend[t.id]);const akt=offen[0];
+  const kopf=`<div class="head"><div><div class="eyebrow">${esc(r.nr)} · ${fmtD(r.datum)}</div><h1>Unterschriften – ${esc(r.thema)}</h1><p>${tl.length-offen.length} von ${tl.length} erledigt · Gerät reihum weitergeben</p></div></div>`;
+  const liste=`<div class="card mt"><h3>Teilnehmende</h3><div class="list">${tl.map(t=>`<div class="item"><span class="pill ${r.sig[t.id]?'g':r.abwesend[t.id]?'n':'o'}">${r.sig[t.id]?'unterschrieben':r.abwesend[t.id]?'abwesend':'offen'}</span><span><div class="ti">${esc(t.name)}</div><div class="su">${esc([t.funktion,t.firma].filter(Boolean).join(' · '))}</div></span>${r.sig[t.id]||r.abwesend[t.id]?`<button class="btn sm ghost" onclick="sigZurueck('${r.id}','${t.id}')">neu</button>`:''}</div>`).join('')}</div>
+    <div class="form mt"><label class="f"><span>Weitere Person (nicht in der Liste)</span><input id="ux_n" placeholder="Name"></label><label class="f"><span>Firma</span><input id="ux_f" placeholder="z. B. Temporärbüro"></label></div>
+    <div class="row mt"><button class="btn sm" onclick="sigExtra('${r.id}')">Hinzufügen</button></div></div>`;
+  if(!akt)return kopf+`<div class="card"><h3>Alle haben unterschrieben</h3><p class="small muted">Der Nachweis mit allen Unterschriften ist bereit.</p><div class="row mt"><button class="btn p" onclick="pdfInstruktion('${r.id}')">Nachweis als PDF</button><button class="btn" onclick="go('instrPdf',{id:'${r.id}'})">Nachweis ansehen</button></div></div>`+liste;
+  return kopf+`<div class="card sigkarte"><div class="eyebrow">Jetzt unterschreibt</div><h2 style="margin:2px 0 6px">${esc(akt.name)}</h2>
+   <p>Ich bestätige, dass ich an der Schulung «${esc(r.thema)}» vom ${fmtD(r.datum)} teilgenommen, sie verstanden habe und die Regeln anwende.</p>
+   <canvas id="sig" width="900" height="260" class="sig"></canvas>
+   <div class="row sp mt"><div class="row"><button class="btn ghost" onclick="sigLeeren()">Löschen</button><button class="btn ghost" onclick="sigAbwesend('${r.id}','${akt.id}')">Nicht anwesend</button></div><button class="btn p" onclick="sigWeiter('${r.id}','${akt.id}')">Unterschreiben und weiter ›</button></div></div>`+liste;};
+function sigWeiter(rid,pid){if(!sigPruefen()){toast('Bitte zuerst unterschreiben.');return;}const r=DB.instruktionen.find(x=>x.id===rid);r.sig=r.sig||{};r.sig[pid]=sigBild();save();render();window.scrollTo(0,0);}
+function sigAbwesend(rid,pid){const r=DB.instruktionen.find(x=>x.id===rid);r.abwesend=r.abwesend||{};r.abwesend[pid]=true;
+  if(!String(pid).startsWith('x')){const p=DB.personen.find(x=>x.id===pid);if(p&&r.vorher&&r.vorher[pid]!==undefined){p.instr=p.instr||{};if(r.vorher[pid])p.instr[r.thema]=r.vorher[pid];else delete p.instr[r.thema];if(r.thema===THEMEN[0])p.instr10=r.vorher[pid]||'';}}
+  save();render();}
+function sigZurueck(rid,pid){const r=DB.instruktionen.find(x=>x.id===rid);if(r.sig)delete r.sig[pid];if(r.abwesend)delete r.abwesend[pid];save();render();}
+function sigExtra(rid){const n=document.getElementById('ux_n').value.trim();if(!n){toast('Name fehlt.');return;}const r=DB.instruktionen.find(x=>x.id===rid);r.extra=r.extra||[];r.extra.push({name:n,firma:document.getElementById('ux_f').value.trim()});save();render();}
+
+/* 10-Minuten-Schulung: Thema aus den 40 Themen, Leitfaden aus Begründung, Sollbild und Massnahmen */
+S.kurzschulung=()=>{const akt=DB.baustellen.filter(b=>b.status==='Aktiv');const bsid=route.bs||meineBaustelle()||(akt[0]||{}).id||'';const tk=route.tk||'ordnung';const th=THEMA[tk];
+  const pers=DB.personen.filter(p=>!bsid||p.baustelle===bsid);
+  return `<div class="head"><div><div class="eyebrow">Instruktionen</div><h1>10-Minuten-Schulung</h1><p>Ein Thema, die ganze Gruppe, danach unterschreiben alle nacheinander auf dem iPad.</p></div><button class="btn ghost" onclick="go('instruktion')">‹ Zurück</button></div>
+  <div class="card"><div class="form">
+   <label class="f"><span>Baustelle</span><select onchange="route.bs=this.value;render()">${akt.map(b=>`<option value="${b.id}" ${b.id===bsid?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>
+   <label class="f"><span>Thema</span><select onchange="route.tk=this.value;render()">${kurzThemen().map(x=>`<option value="${x.k}" ${x.k===tk?'selected':''}>${esc(x.t)}</option>`).join('')}</select></label>
+   <label class="f"><span>Datum</span><input id="ks_d" type="date" value="${today()}"></label>
+   <label class="f"><span>Geschult durch</span><input id="ks_v" list="dlPers" value="${esc(localStorage.getItem('sademo_user')||'')}"></label>
+   <label class="f full"><span>Ergänzung (Anlass, Beispiel von der Baustelle)</span><input id="ks_i" placeholder="z. B. Beinaheunfall vom Dienstag am Graben Nord"></label></div></div>
+  <div class="card mt"><h3>Leitfaden: ${esc(th.t)}</h3><div class="warum"><div class="wtext"><b>1. Warum ist das gefährlich?</b><p>${esc(th.warum)}</p><b>2. So muss es aussehen</b><p>${esc(th.soll.replace(/^Sollzustand: /,''))}</p>
+   <b>3. Was tun wir, wenn es nicht stimmt?</b><ul>${th.v.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><b>4. Frage an die Gruppe</b><p>Wo auf unserer Baustelle sehen wir das? Was machen wir ab morgen anders?</p></div>
+   <button class="wbild" type="button" onclick="sollUmschalten(this)">${sollbildFuer({vorlage:Object.keys(PUNKT_THEMA).find(i=>PUNKT_THEMA[i]===tk)||'',regel:0})}<span class="wcap">${esc(th.soll)}</span><span class="wtip">Antippen: Sollzustand</span></button></div></div>
+  <div class="card mt"><h3>Teilnehmende (${pers.length})</h3><div class="row mt"><button class="btn sm" onclick="inSel(1)">Alle</button><button class="btn sm ghost" onclick="inSel(0)">Keine</button></div>
+   <div class="list mt">${pers.map(p=>`<label class="item"><input type="checkbox" class="in_p" value="${p.id}" checked style="width:22px;height:22px"><span><div class="ti">${esc(p.name)}</div><div class="su">${esc([p.funktion,p.firma].filter(Boolean).join(' · '))}</div></span></label>`).join('')||'<p class="small muted">Auf dieser Baustelle ist niemand erfasst. Weitere Personen lassen sich beim Unterschreiben hinzufügen.</p>'}</div>
+   <div class="row mt"><button class="btn p" onclick="kurzSpeichern('${tk}','${bsid}')">Schulung gehalten, jetzt unterschreiben ›</button></div></div>${DL()}`;};
+function kurzSpeichern(tk,bsid){const v=document.getElementById('ks_v').value.trim();if(!v){toast('Bitte eintragen, wer geschult hat.');return;}
+  const ids=[...document.querySelectorAll('.in_p:checked')].map(i=>i.value);const th=THEMA[tk];const d=document.getElementById('ks_d').value||today();
+  DB.seq++;const rec={id:uid(),nr:`KS-${new Date().getFullYear()}-${String(DB.seq).padStart(4,'0')}`,art:'Kurzschulung',thema:'10-Minuten-Schulung: '+th.t,themaKey:tk,datum:d,durch:v,ort:bs(bsid).name||'',baustelle:bsid,
+    inhalt:[document.getElementById('ks_i').value.trim(),'Warum: '+th.warum,th.soll,'Massnahmen: '+th.v.join(' · ')].filter(Boolean).join('\n'),minuten:'10',teilnehmer:ids,sig:{},extra:[]};
+  DB.instruktionen.push(rec);save();go('unterschrift',{id:rec.id});}
+
+/* Erstanweisung für eine neue Person: Checkliste, zwei Unterschriften */
+S.erstanw=()=>{const akt=DB.baustellen.filter(b=>b.status==='Aktiv');const bsid=route.bs||meineBaustelle()||(akt[0]||{}).id||'';
+  const st=route.ea||{};const schritt=st.schritt||1;
+  if(schritt===1){const kand=DB.personen.filter(p=>!(p.instr||{}).Erstanweisung).sort((a,b)=>(a.baustelle===bsid?0:1)-(b.baustelle===bsid?0:1));
+   return `<div class="head"><div><div class="eyebrow">Instruktionen</div><h1>Erstanweisung neue Person</h1><p>Am ersten Tag, vor dem ersten Einsatz. Rund 15 Minuten.</p></div><button class="btn ghost" onclick="go('instruktion')">‹ Zurück</button></div>
+   <div class="card"><div class="form">
+    <label class="f"><span>Baustelle</span><select id="ea_bs">${akt.map(b=>`<option value="${b.id}" ${b.id===bsid?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>
+    <label class="f"><span>Bekannte Person</span><select id="ea_p"><option value="">– neue Person erfassen –</option>${kand.map(p=>`<option value="${p.id}" ${st.pid===p.id?'selected':''}>${esc(p.name)} · ${esc(p.funktion||'')}</option>`).join('')}</select></label>
+    <label class="f"><span>Name (neue Person)</span><input id="ea_n" placeholder="Nachname Vorname"></label>
+    <label class="f"><span>Funktion</span><input id="ea_fu" placeholder="z. B. Bauarbeiter/in, Temporär"></label>
+    <label class="f"><span>Firma</span><input id="ea_fi" placeholder="leer = eigene Firma"></label>
+    <label class="f"><span>Instruiert durch</span><input id="ea_v" list="dlPers" value="${esc(localStorage.getItem('sademo_user')||'')}"></label></div>
+    <h3 class="mt">Was besprochen wird</h3><div class="list">${ERSTANW_PUNKTE.map(([t,h],i)=>`<label class="item"><input type="checkbox" class="ea_c" value="${i}" style="width:22px;height:22px"><span><div class="ti">${esc(t)}</div><div class="su">${esc(h)}</div></span></label>`).join('')}</div>
+    <div class="row mt"><button class="btn p" onclick="eaWeiter()">Alles besprochen, zu den Unterschriften ›</button></div></div>${DL()}`;}
+  const p=DB.personen.find(x=>x.id===st.pid)||{};const wer=schritt===2?p.name:st.durch;
+  return `<div class="head"><div><div class="eyebrow">Erstanweisung · ${esc(p.name||'')}</div><h1>Unterschrift ${schritt===2?'neue Person':'Instruierende Person'}</h1></div></div>
+   <div class="card sigkarte"><h2 style="margin:2px 0 6px">${esc(wer||'')}</h2><p>${schritt===2?'Ich habe die Erstanweisung erhalten, verstanden und halte mich an die Regeln. Bei Gefahr sage ich STOPP.':'Ich habe die Erstanweisung vollständig durchgeführt.'}</p>
+   <canvas id="sig" width="900" height="260" class="sig"></canvas>
+   <div class="row sp mt"><button class="btn ghost" onclick="sigLeeren()">Löschen</button><button class="btn p" onclick="eaSig()">${schritt===2?'Unterschreiben und weiter ›':'Unterschreiben und abschliessen'}</button></div></div>`;};
+function eaWeiter(){const n=document.getElementById('ea_c');const ok=[...document.querySelectorAll('.ea_c')].filter(c=>c.checked).length;
+  if(ok<ERSTANW_PUNKTE.length){toast('Noch '+(ERSTANW_PUNKTE.length-ok)+' Punkte offen. Alle Punkte gehören zur Erstanweisung.');return;}
+  const v=document.getElementById('ea_v').value.trim();if(!v){toast('Bitte eintragen, wer instruiert.');return;}
+  const bsid=document.getElementById('ea_bs').value;let pid=document.getElementById('ea_p').value;
+  if(!pid){const name=document.getElementById('ea_n').value.trim();if(!name){toast('Person wählen oder Namen eintragen.');return;}
+    const p={id:uid(),name,funktion:document.getElementById('ea_fu').value.trim()||'Mitarbeiter/in',firma:document.getElementById('ea_fi').value.trim(),baustelle:bsid,instr:{},ausweise:[],ausweisBis:{},mail:'',bem:''};DB.personen.push(p);pid=p.id;save();}
+  route.ea={schritt:2,pid,bs:bsid,durch:v};render();}
+function eaSig(){if(!sigPruefen()){toast('Bitte zuerst unterschreiben.');return;}const st=route.ea;
+  if(st.schritt===2){st.sigP=sigBild();st.schritt=3;render();return;}
+  const p=DB.personen.find(x=>x.id===st.pid);const d=today();DB.seq++;
+  const rec={id:uid(),nr:`EA-${new Date().getFullYear()}-${String(DB.seq).padStart(4,'0')}`,art:'Erstanweisung',thema:'Erstanweisung neue Mitarbeitende',datum:d,durch:st.durch,ort:bs(st.bs).name||'',baustelle:st.bs,
+    inhalt:ERSTANW_PUNKTE.map(x=>'✓ '+x[0]).join('\n'),minuten:'15',teilnehmer:[p.id],sig:{[p.id]:st.sigP},sigDurch:sigBild()};
+  DB.instruktionen.push(rec);p.instr=p.instr||{};
+  ['Erstanweisung',THEMEN[0],THEMEN[1],'Notfallorganisation / Erste Hilfe','PSA – richtig einsetzen'].forEach(t=>p.instr[t]=d);p.instr10=d;p.instr10durch=st.durch;p.sige=d;
+  save();delete route.ea;go('instrPdf',{id:rec.id});toast('Erstanweisung für '+p.name+' festgehalten.');}
+
+/* PDF-Nachweis mit eingefügten Unterschriften */
+async function pdfInstruktion(id){
+  const r=(DB.instruktionen||[]).find(x=>x.id===id);if(!r)return;const tl=teilnehmerListe(r);r.sig=r.sig||{};r.abwesend=r.abwesend||{};
+  const d=PDFDoc.doc({kopf:(DB.cfg&&DB.cfg.firma)||'Sicherheitsaudit Grossbaustelle Tiefbau'});
+  const titel=r.art==='Erstanweisung'?'Erstanweisung – '+(tl[0]||{}).name:(r.art==='Kurzschulung'?r.thema:'Instruktionsnachweis – '+r.thema);
+  pdfKopf(d,titel,r.nr+' · '+fmtD(r.datum)+(r.ort?' · '+r.ort:''),'Teilnehmende',String(tl.filter(t=>!r.abwesend[t.id]).length));
+  d.kv([['Durch',r.durch||'–'],['Dauer',(r.minuten||'–')+' Minuten'],[r.art==='Kurzschulung'?'Art':'Nächste Instruktion',r.art==='Kurzschulung'?'10-Minuten-Schulung':fmtD(faelligAm(r.datum,+cfg('instrIntervall',12)))]],3);
+  if(r.inhalt){d.titel(r.art==='Erstanweisung'?'Besprochen':'Inhalt');r.inhalt.split('\n').forEach(z=>d.text(z,{size:8.8,nach:1}));}
+  d.titel('Teilnehmerliste');
+  const sp=[22,170,150,0];sp[3]=d.breite-sp[0]-sp[1]-sp[2];const H=34;
+  const kopfZ=()=>{d.platzFuer(16);const y=d.y;d.kasten(d.links,y-14,d.breite,14,'0.16 0.20 0.26');let x=d.links;['#','Name','Funktion / Firma','Unterschrift'].forEach((t,i)=>{d.textAn(t,x+4,y-10,7.8,true,'1 1 1');x+=sp[i];});d.y=y-14;};
+  kopfZ();
+  for(let i=0;i<tl.length;i++){const t=tl[i];if(d.y-H<46){d.neueSeite();kopfZ();}const y=d.y;let x=d.links;
+    d.textAn(String(i+1),x+4,y-14,8.5,false);x+=sp[0];d.textAn(t.name,x+4,y-14,8.5,true);x+=sp[1];
+    d.umbruchVon([t.funktion,t.firma||(t.extra?'':'eigen')].filter(Boolean).join(' · '),8,false,sp[2]-8).slice(0,2).forEach((z,zi)=>d.textAn(z,x+4,y-12-zi*10,8,false));x+=sp[2];
+    if(r.sig[t.id]){const j=await alsJpeg(r.sig[t.id]);if(j)d.bildAn(j,x+4,y-H+3,Math.min(sp[3]-8,(H-6)*900/260),H-6);}
+    else if(r.abwesend[t.id])d.textAn('nicht anwesend',x+4,y-14,8,false,'0.5 0.5 0.5');
+    d.rechteck(d.links,y-H,d.breite,.5,.75);d.y=y-H;}
+  d.abstand(12);const yb=d.y;d.textAn('Durchgeführt durch: '+(r.durch||''),d.links,yb-10,9,false);
+  if(r.sigDurch){const j=await alsJpeg(r.sigDurch);if(j)d.bildAn(j,d.links,yb-56,150,43);}
+  d.rechteck(d.links,yb-58,170,.7,.2);d.y=yb-70;
+  d.fuss('Mit der Unterschrift bestätigen die Teilnehmenden, dass sie die Instruktion verstanden haben und die Regeln anwenden. Grundlage: VUV Art. 6, EKAS 6508, Suva – 10 lebenswichtige Regeln.'+(r.art==='Kurzschulung'?'':' Wiederholung alle '+cfg('instrIntervall',12)+' Monate.'));
+  await pdfSpeichern((r.nr||'Instruktion')+'.pdf',d);}
 
 /* Meine Baustelle (Polier): alles, was vorbereitet wurde, nur lesen. */
 function bereitschaft(b){const pers=DB.personen.filter(p=>p.baustelle===b.id),masch=DB.maschinen.filter(m=>m.baustelle===b.id);
@@ -7177,6 +7298,8 @@ S.instruktion=()=>{
   return `<div class="head"><div><div class="eyebrow">Instruktionen</div><h1>Instruktionen & Erinnerungen</h1><p>Wiederholung alle ${mon} Monate · Vorwarnung ${cfg('instrVorlauf',30)} Tage · Ausweise ${cfg('ausweisVorlauf',60)} Tage vor Ablauf</p></div>
   <button class="btn noprint" onclick="pdfFaelligkeiten()">Fälligkeitsliste als PDF</button></div>
   <div class="grid g3 mb"><div class="kpi ${ueb?'crit':'ok'}"><b>${ueb}</b><span>überfällig / fehlt</span></div><div class="kpi ${bald?'warn':'ok'}"><b>${bald}</b><span>fällig in Kürze</span></div><div class="kpi acc"><b>${(DB.instruktionen||[]).length}</b><span>durchgeführte Instruktionen</span></div></div>
+  <div class="grid g3 mb"><button class="tile primary" onclick="go('erstanw')"><span class="t">Erstanweisung neue Person</span><span class="d">Am ersten Tag · Checkliste mit 10 Punkten · Unterschrift der Person und des Instruierenden</span></button>
+   <button class="tile" onclick="go('kurzschulung')"><span class="t">10-Minuten-Schulung</span><span class="d">Ein Thema mit Leitfaden und Sollbild · ganze Gruppe unterschreibt nacheinander</span></button></div>
   <div class="card mb"><h3>Instruktion durchführen</h3><p class="small muted">Thema wählen, Teilnehmende ankreuzen – der Nachweis wird bei allen gleichzeitig nachgeführt und es entsteht eine Teilnehmerliste zum Unterschreiben.</p>
   <div class="form mt">
     <label class="f"><span>Thema</span><select onchange="route.thema=this.value;render()">${THEMEN.map(x=>`<option ${x===t?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
@@ -7190,7 +7313,7 @@ S.instruktion=()=>{
   <div class="tw mt"><table class="tb"><thead><tr><th style="width:44px"></th><th>Person</th><th>Funktion</th><th>Letzte Instruktion</th><th>Status</th></tr></thead><tbody>
   ${kand.map(({p,d,tg})=>`<tr><td><input type="checkbox" class="in_p" value="${p.id}" ${tg<=+cfg('instrVorlauf',30)?'checked':''} style="width:22px;height:22px"></td><td>${esc(p.name)}</td><td>${esc(p.funktion)}</td><td>${d?fmtD(d):'–'}</td><td class="${tg<0?'crit-c':''}">${d?(tg<0?Math.abs(tg)+' Tage überfällig':'gültig, fällig in '+tg+' Tagen'):'nie instruiert'}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Keine Personen erfasst.</td></tr>'}
   </tbody></table></div>
-  <div class="row mt"><button class="btn p" onclick="instrSpeichern()">Instruktion speichern und Teilnehmerliste erzeugen</button></div>${DL()}</div>
+  <div class="row mt"><button class="btn p" onclick="instrSpeichern()">Instruktion speichern, dann unterschreiben ›</button></div>${DL()}</div>
   <div class="card mb"><h3>Fällig und überfällig (${items.length})</h3>
   ${items.length?`<div class="tw"><table class="tb"><thead><tr><th>Art</th><th>Wer / was</th><th>Betrifft</th><th>Fällig</th><th>Status</th><th></th></tr></thead><tbody>
   ${items.map(i=>`<tr><td>${esc(i.typ)}</td><td><b>${esc(i.name)}</b><br><small class="muted">${esc(i.sub||'')}</small></td><td>${esc(i.was)}</td><td>${i.bis?fmtD(i.bis):'–'}</td><td class="${i.tage<0?'crit-c':''}">${instrStatusText(i)}</td><td>${i.art==='person'?`<button class="btn sm ghost" onclick="go('personen',{edit:'${i.ref}'})">öffnen</button>`:i.art==='maschine'?`<button class="btn sm ghost" onclick="go('maschinen',{edit:'${i.ref}'})">öffnen</button>`:i.art==='sub'?`<button class="btn sm p" onclick="subInstruiert('${i.sub2}')">instruiert</button>`:`<button class="btn sm ghost" onclick="go('baustellen',{edit:'${i.ref}'})">öffnen</button>`}</td></tr>`).join('')}
@@ -7204,26 +7327,27 @@ function instrSpeichern(){
   if(!v){toast('Bitte eintragen, wer instruiert hat.');return;}
   if(!ids.length){toast('Keine Teilnehmenden gewählt.');return;}
   DB.seq++;const rec={id:uid(),nr:`IN-${new Date().getFullYear()}-${String(DB.seq).padStart(4,'0')}`,thema:t,datum:d,durch:v,ort:document.getElementById('in_o').value,inhalt:document.getElementById('in_i').value,minuten:document.getElementById('in_min').value,teilnehmer:ids};
+  rec.vorher={};rec.sig={};ids.forEach(id=>{const p=DB.personen.find(x=>x.id===id);if(p)rec.vorher[id]=(p.instr||{})[t]||'';});
   DB.instruktionen.push(rec);
   ids.forEach(id=>{const p=DB.personen.find(x=>x.id===id);if(!p)return;p.instr=p.instr||{};p.instr[t]=d;
     if(t===THEMEN[0]){p.instr10=d;p.instr10durch=v;}if(t===THEMEN[1])p.sige=d;});
-  save();go('instrPdf',{id:rec.id});toast(ids.length+' Instruktionsnachweise nachgeführt.');}
+  save();go('unterschrift',{id:rec.id});toast(ids.length+' Instruktionsnachweise nachgeführt. Jetzt unterschreiben alle nacheinander.');}
 function instrErinnerung(){
   const items=instrItems().filter(i=>i.tage<=0);
   const txt=['Guten Tag','','Folgende Instruktionen und Nachweise sind fällig oder überfällig:','',...items.map(i=>`- ${i.typ}: ${i.name} – ${i.was} (${instrStatusText(i)})`),'','Bitte Termine einplanen. Die Nachweise werden im Kontrollprogramm nachgeführt.','',cfg('sibeName','')].join('\n');
   location.href=`mailto:?subject=${encodeURIComponent('Fällige Instruktionen und Nachweise – Stand '+fmtD(today()))}&body=${encodeURIComponent(txt)}`;}
 S.instrPdf=()=>{
   const r=(DB.instruktionen||[]).find(x=>x.id===route.id);if(!r)return S.instruktion();
-  const ps=r.teilnehmer.map(id=>DB.personen.find(p=>p.id===id)).filter(Boolean);
-  return `<div class="row sp mb noprint"><button class="btn ghost" onclick="go('instruktion')">‹ Instruktionen</button><button class="btn p" onclick="pdfInstruktion('${r.id}')">PDF exportieren</button></div>
-  <div class="report"><div class="hdr"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#555">${esc(cfg('firma','Sicherheitsaudit Grossbaustelle Tiefbau'))}</div><h1>Instruktionsnachweis – ${esc(r.thema)}</h1><div>${esc(r.nr)} · ${fmtD(r.datum)}${r.ort?' · '+esc(r.ort):''}</div></div><div style="text-align:right"><div style="font-size:11px;color:#555">Teilnehmende</div><div style="font-size:20px;font-weight:700">${ps.length}</div></div></div>
+  const ps=teilnehmerListe(r);const sg=r.sig||{},ab=r.abwesend||{};const fehlt=ps.filter(t=>!sg[t.id]&&!ab[t.id]).length;
+  return `<div class="row sp mb noprint"><button class="btn ghost" onclick="go('instruktion')">‹ Instruktionen</button><div class="row">${fehlt?`<button class="btn" onclick="go('unterschrift',{id:'${r.id}'})">Unterschriften sammeln (${fehlt} offen)</button>`:''}<button class="btn p" onclick="pdfInstruktion('${r.id}')">PDF exportieren</button></div></div>
+  <div class="report"><div class="hdr"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#555">${esc(cfg('firma','Sicherheitsaudit Grossbaustelle Tiefbau'))}</div><h1>${r.art==='Erstanweisung'?'Erstanweisung – '+esc((ps[0]||{}).name||''):r.art==='Kurzschulung'?esc(r.thema):'Instruktionsnachweis – '+esc(r.thema)}</h1><div>${esc(r.nr)} · ${fmtD(r.datum)}${r.ort?' · '+esc(r.ort):''}</div></div><div style="text-align:right"><div style="font-size:11px;color:#555">Teilnehmende</div><div style="font-size:20px;font-weight:700">${ps.length}</div></div></div>
   <div class="kv"><div><span>Instruiert durch</span>${esc(r.durch)}</div><div><span>Dauer</span>${esc(r.minuten||'')} Minuten</div><div><span>Nächste Instruktion</span>${fmtD(faelligAm(r.datum,+cfg('instrIntervall',12)))}</div></div>
-  ${r.inhalt?`<h2>Inhalt</h2><p>${esc(r.inhalt)}</p>`:''}
+  ${r.inhalt?`<h2>Inhalt</h2><p>${esc(r.inhalt).replace(/\n/g,'<br>')}</p>`:''}
   <h2>Teilnehmerliste</h2>
   <table><thead><tr><th style="width:26px">#</th><th>Name</th><th>Funktion</th><th>Firma</th><th style="width:34%">Unterschrift</th></tr></thead><tbody>
-  ${ps.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${esc(p.funktion)}</td><td>${esc(p.firma||'eigen')}</td><td style="height:34px"></td></tr>`).join('')}
+  ${ps.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${esc(p.funktion)}</td><td>${esc(p.firma||(p.extra?'':'eigen'))}</td><td style="height:34px">${sg[p.id]?`<img src="${sg[p.id]}" alt="Unterschrift" style="height:34px">`:ab[p.id]?'<span class="muted">nicht anwesend</span>':''}</td></tr>`).join('')}
   </tbody></table>
-  <div style="display:flex;gap:40px;margin-top:18px"><div><div>Instruktion durchgeführt durch: ${esc(r.durch)}</div><div style="height:60px;border-bottom:1px solid #111;width:240px"></div></div></div>
+  <div style="display:flex;gap:40px;margin-top:18px"><div><div>Instruktion durchgeführt durch: ${esc(r.durch)}</div><div style="height:60px;border-bottom:1px solid #111;width:240px">${r.sigDurch?`<img src="${r.sigDurch}" alt="" style="height:58px">`:''}</div></div></div>
   <div class="foot">Mit der Unterschrift bestätigen die Teilnehmenden, dass sie die Instruktion verstanden haben und die Regeln anwenden. Grundlage: VUV Art. 6 (Information und Anleitung der Arbeitnehmenden), EKAS-Richtlinie 6508, Suva – 10 lebenswichtige Regeln. Wiederholung alle ${cfg('instrIntervall',12)} Monate.</div></div>`;
 };
 S.instrPdfListe=()=>{const items=instrItems();
@@ -7535,25 +7659,6 @@ async function pdfMassnahmen(f){
     [1.7,1,1.7,3.2,3.2,1.6,.9,.7,1.3,1.1,1,.9]);
   d.fuss('Fristen: Kritisch sofort · Hoch 3 Arbeitstage · Mittel 14 Tage · Niedrig 30 Tage. WK = Wirksamkeitskontrolle. «!» = überfällig.');
   await pdfSpeichern('Massnahmen_'+titel.replace(/[^\wäöü]+/g,'_')+'_'+today()+'.pdf',d);}
-
-async function pdfInstruktion(id){
-  const r=(DB.instruktionen||[]).find(x=>x.id===id);if(!r)return;
-  const ps=r.teilnehmer.map(i=>DB.personen.find(p=>p.id===i)).filter(Boolean);
-  const d=PDFDoc.doc({kopf:(DB.cfg&&DB.cfg.firma)||'Sicherheitsaudit Grossbaustelle Tiefbau'});
-  pdfKopf(d,'Instruktionsnachweis – '+r.thema,r.nr+' · '+fmtD(r.datum)+(r.ort?' · '+r.ort:''),'Teilnehmende',String(ps.length));
-  d.kv([['Instruiert durch',r.durch||'–'],['Dauer',(r.minuten||'–')+' Minuten'],
-    ['Nächste Instruktion',fmtD(faelligAm(r.datum,+cfg('instrIntervall',12)))]],3);
-  if(r.inhalt){d.titel('Inhalt');d.text(r.inhalt);}
-  d.titel('Teilnehmerliste');
-  d.tabelle(['#','Name','Funktion','Firma','Unterschrift'],
-    ps.map((p,i)=>[String(i+1),p.name,p.funktion,p.firma||'eigen','']),[.4,2.2,1.8,1.8,3.4],{size:8.5});
-  d.abstand(10);
-  const yb=d.y;
-  d.textAn('Instruktion durchgeführt durch: '+(r.durch||''),d.links,yb-10,9,false);
-  d.rechteck(d.links,yb-64,170,.7,.2);
-  d.y=yb-78;
-  d.fuss('Mit der Unterschrift bestätigen die Teilnehmenden, dass sie die Instruktion verstanden haben und die Regeln anwenden. Grundlage: VUV Art. 6, EKAS 6508, Suva – 10 lebenswichtige Regeln. Wiederholung alle '+cfg('instrIntervall',12)+' Monate.');
-  await pdfSpeichern((r.nr||'Instruktion')+'.pdf',d);}
 
 async function pdfFaelligkeiten(){
   const items=instrItems();
